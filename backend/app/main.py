@@ -10,7 +10,7 @@ from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
 
 from .logic import impact_assessment
-from .models import Base, Order, ProductionReview, Change, ApprovalDecision
+from .models import Base, Order, OrderRevision, ProductionReview, Change, ApprovalDecision
 from .schemas import CreateOrder, ProductionReviewInput, ChangeInput, DecisionInput
 
 
@@ -84,13 +84,42 @@ def create_app(database_url: str | None = None) -> FastAPI:
     def create_order(payload: CreateOrder, db: Annotated[Session, Depends(get_db)], actor: Annotated[dict, Depends(require_role("sales"))]):
         order = Order(**payload.model_dump())
         db.add(order)
-        db.commit()
+        db.flush()  # Allocates order.id; does NOT commit the transaction yet.
+        db.add(OrderRevision(
+            order_id=order.id,
+            revision_number=1,
+            product_code=order.product_code,
+            quantity=order.quantity,
+            unit_sales_price_kopeks=order.unit_sales_price_kopeks,
+            unit_est_cost_kopeks=order.unit_est_cost_kopeks,
+            delivery_date=order.delivery_date,
+            approved_source_id=order.approved_source_id,
+        ))
+        db.commit()  # Order and V1 history are written atomically.
         db.refresh(order)
         return serialize_order(order)
 
     @app.get("/api/v1/orders/{order_id}", operation_id="getOrder")
     def get_order(order_id: str, db: Annotated[Session, Depends(get_db)], actor: Annotated[dict, Depends(current_actor)]):
         return serialize_order(fetch_order(db, order_id))
+
+
+    @app.get("/api/v1/orders/{order_id}/revisions", operation_id="listOrderRevisions")
+    def list_order_revisions(order_id: str, db: Annotated[Session, Depends(get_db)], actor: Annotated[dict, Depends(current_actor)]):
+        fetch_order(db, order_id)
+        revisions = db.scalars(
+            select(OrderRevision).where(OrderRevision.order_id == order_id)
+            .order_by(OrderRevision.revision_number.asc())
+        ).all()
+        return [
+            {"id": item.id, "order_id": item.order_id, "revision_number": item.revision_number,
+             "product_code": item.product_code, "quantity": item.quantity,
+             "unit_sales_price_kopeks": item.unit_sales_price_kopeks,
+             "unit_est_cost_kopeks": item.unit_est_cost_kopeks,
+             "delivery_date": item.delivery_date, "approved_source_id": item.approved_source_id,
+             "approved_change_id": item.approved_change_id, "created_at": item.created_at}
+            for item in revisions
+        ]
 
     @app.post("/api/v1/orders/{order_id}/production-reviews", status_code=201, operation_id="recordProductionReview")
     def record_production_review(order_id: str, payload: ProductionReviewInput, db: Annotated[Session, Depends(get_db)], actor: Annotated[dict, Depends(require_role("production"))]):
