@@ -1,0 +1,525 @@
+openapi: 3.1.0
+info:
+  title: HandoffGuard AI API
+  version: 0.3.0-draft
+  description: |
+    Contract for a synthetic B2B manufacturing change-impact and approval demo.
+    This contract is a design draft; endpoints are not yet implemented.
+servers:
+  - url: http://localhost:8000
+security:
+  - bearerAuth: []
+tags:
+  - name: orders
+  - name: production
+  - name: changes
+  - name: approval
+paths:
+  /api/v1/orders:
+    post:
+      tags: [orders]
+      operationId: createOrder
+      summary: Create approved baseline order revision 1
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreateOrder'
+      responses:
+        '201':
+          description: Approved baseline created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/Invalid'
+  /api/v1/orders/{order_id}:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    get:
+      tags: [orders]
+      operationId: getOrder
+      summary: Get currently approved order revision
+      responses:
+        '200':
+          description: Current approved order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Order'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/orders/{order_id}/production-reviews:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    post:
+      tags: [production]
+      operationId: recordProductionReview
+      summary: Production reviewer records progress and feasibility
+      description: Only the authenticated production reviewer role is authorized.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ProductionReviewInput'
+      responses:
+        '201':
+          description: Immutable production review saved; older assessments become stale
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ProductionReview'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Invalid'
+  /api/v1/orders/{order_id}/changes:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    post:
+      tags: [changes]
+      operationId: createChange
+      summary: Record proposed change without mutating approved order
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/ChangeInput'
+      responses:
+        '201':
+          description: Change draft created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Change'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Invalid'
+  /api/v1/changes/{change_id}:
+    parameters:
+      - $ref: '#/components/parameters/ChangeId'
+    get:
+      tags: [changes]
+      operationId: getChange
+      responses:
+        '200':
+          description: Proposed change and status
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Change'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/changes/{change_id}/sources:
+    parameters:
+      - $ref: '#/components/parameters/ChangeId'
+    post:
+      tags: [changes]
+      operationId: addSource
+      summary: Add auditable source (client message, quote or production evidence)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SourceInput'
+      responses:
+        '201':
+          description: Immutable source with digest saved; relevant edits stale prior assessment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Source'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/Invalid'
+  /api/v1/changes/{change_id}/assess:
+    parameters:
+      - $ref: '#/components/parameters/ChangeId'
+    post:
+      tags: [changes]
+      operationId: assessChange
+      summary: Deterministically assess financial impact and feasibility
+      responses:
+        '200':
+          description: Saved immutable impact assessment
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Assessment'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Blocked'
+  /api/v1/changes/{change_id}/submit:
+    parameters:
+      - $ref: '#/components/parameters/ChangeId'
+    post:
+      tags: [approval]
+      operationId: submitForApproval
+      summary: Move a current READY_FOR_APPROVAL assessment to PENDING_APPROVAL
+      responses:
+        '200':
+          description: Change ready for authorized internal decision
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Change'
+        '409':
+          $ref: '#/components/responses/Blocked'
+        '404':
+          $ref: '#/components/responses/NotFound'
+  /api/v1/changes/{change_id}/decision:
+    parameters:
+      - $ref: '#/components/parameters/ChangeId'
+    post:
+      tags: [approval]
+      operationId: decideChange
+      summary: Single authorized internal approver decides on current assessment
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DecisionInput'
+      responses:
+        '200':
+          description: Authenticated human decision recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Decision'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Blocked'
+  /api/v1/changes/{change_id}/customer-acceptance:
+    parameters:
+      - $ref: '#/components/parameters/ChangeId'
+    post:
+      tags: [approval]
+      operationId: recordCustomerAcceptance
+      summary: Save verified customer evidence matching approved proposal
+      description: Acceptance is evidence recorded and checked by a human, not an e-signature.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CustomerAcceptanceInput'
+      responses:
+        '201':
+          description: Verified matching acceptance recorded
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Source'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Blocked'
+  /api/v1/changes/{change_id}/apply:
+    parameters:
+      - $ref: '#/components/parameters/ChangeId'
+    post:
+      tags: [approval]
+      operationId: applyApprovedChange
+      summary: Create immutable new order revision only after both approvals
+      responses:
+        '201':
+          description: New approved revision and handoff record created
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Handoff'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Blocked'
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      description: Authenticate token server-side; never trust role strings from request payload.
+  parameters:
+    OrderId:
+      name: order_id
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+    ChangeId:
+      name: change_id
+      in: path
+      required: true
+      schema:
+        type: string
+        minLength: 1
+  responses:
+    Unauthorized:
+      description: Authentication required
+    Forbidden:
+      description: Actor lacks role permission
+    NotFound:
+      description: Requested resource does not exist
+    Blocked:
+      description: State transition blocked or stale assessment
+      content:
+        application/json:
+          schema:
+            $ref: '#/components/schemas/ApiError'
+    Invalid:
+      description: Invalid input data
+  schemas:
+    ApiError:
+      type: object
+      required: [code, message]
+      properties:
+        code:
+          type: string
+        message:
+          type: string
+    ProductionStatus:
+      type: string
+      enum: [NOT_STARTED, IN_PRODUCTION, COMPLETED]
+    Feasibility:
+      type: string
+      enum: [CONFIRMED, NOT_FEASIBLE, UNKNOWN]
+    ChangeStatus:
+      type: string
+      enum: [DRAFT, ASSESSMENT_REQUIRED, PENDING_APPROVAL, INTERNALLY_APPROVED, REJECTED, APPLIED]
+    Readiness:
+      type: string
+      enum: [READY_FOR_APPROVAL, NEEDS_DATA, CONFLICT]
+    CreateOrder:
+      type: object
+      additionalProperties: false
+      required: [product_code, quantity, unit_sales_price_kopeks, delivery_date, approved_source_id]
+      properties:
+        product_code:
+          type: string
+          minLength: 1
+        quantity:
+          type: integer
+          minimum: 1
+        unit_sales_price_kopeks:
+          type: integer
+          minimum: 0
+        unit_est_cost_kopeks:
+          type: [integer, 'null']
+          minimum: 0
+        delivery_date:
+          type: string
+          format: date
+        approved_source_id:
+          type: string
+          minLength: 1
+    Order:
+      allOf:
+        - $ref: '#/components/schemas/CreateOrder'
+        - type: object
+          required: [id, revision, production_status, completed_quantity]
+          properties:
+            id:
+              type: string
+            revision:
+              type: integer
+              minimum: 1
+            production_status:
+              $ref: '#/components/schemas/ProductionStatus'
+            completed_quantity:
+              type: integer
+              minimum: 0
+    ProductionReviewInput:
+      type: object
+      additionalProperties: false
+      required: [production_status, completed_quantity, feasibility, note]
+      properties:
+        production_status:
+          $ref: '#/components/schemas/ProductionStatus'
+        completed_quantity:
+          type: integer
+          minimum: 0
+        feasibility:
+          $ref: '#/components/schemas/Feasibility'
+        note:
+          type: string
+    ProductionReview:
+      allOf:
+        - $ref: '#/components/schemas/ProductionReviewInput'
+        - type: object
+          required: [id, order_id, order_revision, reviewer_id, recorded_at]
+          properties:
+            id:
+              type: string
+            order_id:
+              type: string
+            order_revision:
+              type: integer
+            reviewer_id:
+              type: string
+            recorded_at:
+              type: string
+              format: date-time
+    ChangeInput:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 1
+        requested_quantity:
+          type: integer
+          minimum: 1
+        requested_unit_sales_price_kopeks:
+          type: integer
+          minimum: 0
+        requested_unit_est_cost_kopeks:
+          type: [integer, 'null']
+          minimum: 0
+        requested_delivery_date:
+          type: string
+          format: date
+        one_time_change_cost_kopeks:
+          type: [integer, 'null']
+          minimum: 0
+    Change:
+      allOf:
+        - $ref: '#/components/schemas/ChangeInput'
+        - type: object
+          required: [id, order_id, baseline_revision, status]
+          properties:
+            id:
+              type: string
+            order_id:
+              type: string
+            baseline_revision:
+              type: integer
+            status:
+              $ref: '#/components/schemas/ChangeStatus'
+    SourceInput:
+      type: object
+      additionalProperties: false
+      required: [kind, name, content, quote]
+      properties:
+        kind:
+          type: string
+          enum: [APPROVED_ORDER, CLIENT_MESSAGE, PRICE_QUOTE, PRODUCTION_REPORT, CUSTOMER_ACCEPTANCE]
+        name:
+          type: string
+        content:
+          type: string
+        quote:
+          type: string
+    Source:
+      allOf:
+        - $ref: '#/components/schemas/SourceInput'
+        - type: object
+          required: [id, sha256, recorded_at]
+          properties:
+            id:
+              type: string
+            sha256:
+              type: string
+            recorded_at:
+              type: string
+              format: date-time
+    Assessment:
+      type: object
+      required: [change_id, readiness, fingerprint, issues, old_revenue_kopeks, new_revenue_kopeks, delta_revenue_kopeks]
+      properties:
+        change_id:
+          type: string
+        readiness:
+          $ref: '#/components/schemas/Readiness'
+        fingerprint:
+          type: string
+        issues:
+          type: array
+          items:
+            type: string
+        old_revenue_kopeks:
+          type: integer
+        new_revenue_kopeks:
+          type: [integer, 'null']
+        delta_revenue_kopeks:
+          type: [integer, 'null']
+        delta_est_contribution_kopeks:
+          type: [integer, 'null']
+    DecisionInput:
+      type: object
+      additionalProperties: false
+      required: [action, assessment_fingerprint, note]
+      properties:
+        action:
+          type: string
+          enum: [APPROVE, REJECT]
+        assessment_fingerprint:
+          type: string
+        note:
+          type: string
+    Decision:
+      type: object
+      required: [change_id, action, reviewer_id, assessment_fingerprint, decided_at]
+      properties:
+        change_id:
+          type: string
+        action:
+          type: string
+          enum: [APPROVE, REJECT]
+        reviewer_id:
+          type: string
+        assessment_fingerprint:
+          type: string
+        decided_at:
+          type: string
+          format: date-time
+    CustomerAcceptanceInput:
+      type: object
+      additionalProperties: false
+      required: [quantity, unit_sales_price_kopeks, delivery_date, source_name, evidence_text]
+      properties:
+        quantity:
+          type: integer
+          minimum: 1
+        unit_sales_price_kopeks:
+          type: integer
+          minimum: 0
+        delivery_date:
+          type: string
+          format: date
+        source_name:
+          type: string
+        evidence_text:
+          type: string
+    Handoff:
+      type: object
+      required: [order_id, change_id, approved_revision, applied_at]
+      properties:
+        order_id:
+          type: string
+        change_id:
+          type: string
+        approved_revision:
+          type: integer
+          minimum: 2
+        applied_at:
+          type: string
+          format: date-time
