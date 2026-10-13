@@ -6,12 +6,12 @@ from typing import Annotated
 
 from fastapi import Depends, FastAPI, HTTPException
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
-from sqlalchemy import create_engine, select
+from sqlalchemy import create_engine, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from .logic import impact_assessment
-from .models import Base, Order, OrderRevision, ProductionReview, Change, ApprovalDecision
-from .schemas import CreateOrder, ProductionReviewInput, ChangeInput, DecisionInput
+from .models import Base, Order, OrderRevision, ProductionReview, Change, ApprovalDecision, CustomerAcceptance
+from .schemas import CreateOrder, ProductionReviewInput, ChangeInput, DecisionInput, CustomerAcceptanceInput
 
 
 def create_app(database_url: str | None = None) -> FastAPI:
@@ -220,6 +220,107 @@ def create_app(database_url: str | None = None) -> FastAPI:
         db.refresh(record)
         return {"change_id": change.id, "action": record.action, "reviewer_id": record.reviewer_id,
                 "assessment_fingerprint": record.assessment_fingerprint, "decided_at": record.decided_at}
+
+
+    def approved_assessment(db: Session, change: Change, order: Order) -> dict:
+        """Re-check approval against current order and production before recording or applying."""
+        review = latest_review(db, order.id)
+        if (change.status != "INTERNALLY_APPROVED"
+                or change.baseline_revision != order.revision
+                or review is None or review.id != change.latest_review_id
+                or review.production_status == "COMPLETED"):
+            raise HTTPException(status_code=409, detail="Current internal approval required")
+        assessment = impact_assessment(order, change, review)
+        approval = db.scalars(select(ApprovalDecision).where(
+            ApprovalDecision.change_id == change.id,
+            ApprovalDecision.action == "APPROVE",
+            ApprovalDecision.assessment_fingerprint == assessment["fingerprint"]
+        )).first()
+        if (not approval or assessment["readiness"] != "READY_FOR_APPROVAL"
+                or assessment["fingerprint"] != change.latest_fingerprint):
+            raise HTTPException(status_code=409, detail="Approval no longer matches current terms")
+        return assessment
+
+    @app.post("/api/v1/changes/{change_id}/customer-acceptance", status_code=201, operation_id="recordCustomerAcceptance")
+    def record_customer_acceptance(change_id: str, payload: CustomerAcceptanceInput,
+                                   db: Annotated[Session, Depends(get_db)],
+                                   actor: Annotated[dict, Depends(require_role("sales"))]):
+        change = fetch_change(db, change_id)
+        order = fetch_order(db, change.order_id)
+        assessment = approved_assessment(db, change, order)
+        expected = (
+            assessment["proposed_quantity"],
+            change.requested_unit_sales_price_kopeks if change.requested_unit_sales_price_kopeks is not None else order.unit_sales_price_kopeks,
+            assessment["proposed_delivery_date"],
+        )
+        if (payload.quantity, payload.unit_sales_price_kopeks, payload.delivery_date.isoformat()) != expected:
+            raise HTTPException(status_code=409, detail="Customer terms differ from internal approval")
+        if db.scalars(select(CustomerAcceptance).where(CustomerAcceptance.change_id == change_id)).first():
+            raise HTTPException(status_code=409, detail="Acceptance already recorded")
+        acceptance = CustomerAcceptance(
+            change_id=change_id, assessment_fingerprint=assessment["fingerprint"],
+            recorded_by=actor["id"], **payload.model_dump()
+        )
+        db.add(acceptance)
+        db.commit()
+        db.refresh(acceptance)
+        return {"id": acceptance.id, "change_id": change_id, "recorded_at": acceptance.recorded_at,
+                "recorded_by": acceptance.recorded_by, "assessment_fingerprint": acceptance.assessment_fingerprint}
+
+    @app.post("/api/v1/changes/{change_id}/apply", status_code=201, operation_id="applyApprovedChange")
+    def apply_approved_change(change_id: str, db: Annotated[Session, Depends(get_db)],
+                              actor: Annotated[dict, Depends(require_role("approver"))]):
+        change = fetch_change(db, change_id)
+        order = fetch_order(db, change.order_id)
+        assessment = approved_assessment(db, change, order)
+        acceptance = db.scalars(select(CustomerAcceptance).where(
+            CustomerAcceptance.change_id == change_id
+        )).first()
+        if acceptance is None or acceptance.assessment_fingerprint != assessment["fingerprint"]:
+            raise HTTPException(status_code=409, detail="Matching customer acceptance required")
+        quantity = assessment["proposed_quantity"]
+        price = (change.requested_unit_sales_price_kopeks if change.requested_unit_sales_price_kopeks is not None
+                 else order.unit_sales_price_kopeks)
+        date = change.requested_delivery_date or order.delivery_date
+        if (acceptance.quantity, acceptance.unit_sales_price_kopeks, acceptance.delivery_date) != (quantity, price, date):
+            raise HTTPException(status_code=409, detail="Customer acceptance no longer matches")
+        if order.production_status == "COMPLETED":
+            raise HTTPException(status_code=409, detail="Completed orders cannot be revised")
+        next_revision = order.revision + 1
+        # Compare-and-swap: only one competing writer can advance this baseline.
+        result = db.execute(update(Order).where(
+            Order.id == order.id, Order.revision == change.baseline_revision,
+            Order.production_status != "COMPLETED"
+        ).values(
+            revision=next_revision, quantity=quantity, unit_sales_price_kopeks=price,
+            unit_est_cost_kopeks=(change.requested_unit_est_cost_kopeks
+                                  if change.requested_unit_est_cost_kopeks is not None else order.unit_est_cost_kopeks),
+            delivery_date=date, approved_source_id=acceptance.id
+        ))
+        if result.rowcount != 1:
+            db.rollback()
+            raise HTTPException(status_code=409, detail="Concurrent order revision conflict")
+        db.add(OrderRevision(
+            order_id=order.id, revision_number=next_revision, product_code=order.product_code,
+            quantity=quantity, unit_sales_price_kopeks=price,
+            unit_est_cost_kopeks=(change.requested_unit_est_cost_kopeks
+                                  if change.requested_unit_est_cost_kopeks is not None else order.unit_est_cost_kopeks),
+            delivery_date=date, approved_source_id=acceptance.id, approved_change_id=change.id
+        ))
+        change.status = "APPLIED"
+        # Pending decisions based on prior order revision cannot be used again.
+        for other in db.scalars(select(Change).where(
+            Change.order_id == order.id, Change.id != change.id,
+            Change.status.in_(["ASSESSMENT_REQUIRED", "PENDING_APPROVAL", "INTERNALLY_APPROVED"])
+        )):
+            other.status = "ASSESSMENT_REQUIRED"
+            other.latest_fingerprint = None
+            other.latest_readiness = None
+            other.latest_review_id = None
+            other.assessment_result = None
+        db.commit()
+        return {"order_id": order.id, "change_id": change.id, "approved_revision": next_revision,
+                "approved_source_id": acceptance.id}
 
     @app.get("/health", include_in_schema=False)
     def health():
