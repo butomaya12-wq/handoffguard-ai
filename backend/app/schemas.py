@@ -43,3 +43,11 @@ class DecisionInput(BaseModel):
     action: Literal["APPROVE", "REJECT"]
     assessment_fingerprint: str = Field(min_length=64, max_length=64)
     note: str = Field(min_length=1)
+
+
+class CustomerAcceptanceInput(BaseModel):
+    quantity: int = Field(gt=0)
+    unit_sales_price_kopeks: int = Field(ge=0)
+    delivery_date: date
+    source_name: str = Field(min_length=1, max_length=200)
+    evidence_text: str = Field(min_length=1)
