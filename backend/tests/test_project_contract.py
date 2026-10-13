@@ -12,7 +12,7 @@ def test_documented_implemented_operations_match_fastapi():
     """Draft may contain planned routes, but all implemented paths and methods must match."""
     contract = yaml.safe_load((Path(__file__).resolve().parents[2] / "openapi.yaml").read_text())
     with TestClient(create_app("sqlite://")) as api:
-        generated = api.openapi()
+        generated = api.app.openapi()
     for path, methods in generated["paths"].items():
         assert path in contract["paths"], f"Missing documented path: {path}"
         for method, details in methods.items():
