@@ -19,7 +19,7 @@ npm run build
 ```
 
 ## Limits
-- Credentials stay only in page memory; demo shows role switching to test backend RBAC. **Not production login:** never enter real tokens or deploy this multi-role demo login publicly.
+- Credentials stay only in page memory; for local Vite development, a user-activated **local demo role mode** sends the fixed synthetic tokens per endpoint without trusting browser password autofill. It is never enabled for public builds. **Not production login:** never enter real tokens or deploy this multi-role demo login publicly.
 - Requests use only synthetic data. No LLM approval, 1C/CRM connection, e-signature or production identity verification.
 - Saved change state (including assessment and matching customer acceptance) is read back from the backend after opening the order. A sessionStorage entry keeps the last demo order ID for this tab only; it does not persist tokens. Multiple saved changes are selectable. No automatic production SSO exists.
 - There is not yet a committed npm lockfile; CI uses `npm install` until the lockfile is generated and committed. Reproducible `npm ci`, Docker and deployment are later gates.
