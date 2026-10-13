@@ -22,6 +22,13 @@ def create_app(database_url: str | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(app: FastAPI):
         Base.metadata.create_all(engine)
+        # Fail closed on pre-V1 databases: create_all cannot reconstruct approved history.
+        with session_factory() as migration_check:
+            missing = migration_check.scalars(select(Order.id).outerjoin(
+                OrderRevision, (OrderRevision.order_id == Order.id) & (OrderRevision.revision_number == 1)
+            ).where(OrderRevision.id.is_(None)).limit(1)).first()
+            if missing is not None:
+                raise RuntimeError("Existing orders lack approved V1 snapshots. Back up and migrate the database before starting; never fabricate historical approval records.")
         yield
         engine.dispose()
 
