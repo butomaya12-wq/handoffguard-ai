@@ -103,6 +103,23 @@ paths:
   /api/v1/orders/{order_id}/changes:
     parameters:
       - $ref: '#/components/parameters/OrderId'
+    get:
+      tags: [changes]
+      operationId: listOrderChanges
+      summary: Resume saved proposal and approval workflow after a UI reload (sales or approver)
+      responses:
+        '200':
+          description: Saved proposals, assessment snapshots and matching customer acceptance flags
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/ChangeWorkflow'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '404':
+          $ref: '#/components/responses/NotFound'
     post:
       tags: [changes]
       operationId: createChange
@@ -469,6 +486,27 @@ components:
               type: integer
             status:
               $ref: '#/components/schemas/ChangeStatus'
+    ChangeWorkflow:
+      type: object
+      description: Saved read-only proposal state; the server rechecks all conditions before any write.
+      required: [id, order_id, baseline_revision, status, assessment, customer_accepted]
+      properties:
+        id:
+          type: string
+        order_id:
+          type: string
+        baseline_revision:
+          type: integer
+        status:
+          $ref: '#/components/schemas/ChangeStatus'
+        requested_quantity:
+          type: [integer, 'null']
+        assessment:
+          oneOf:
+            - $ref: '#/components/schemas/Assessment'
+            - type: 'null'
+        customer_accepted:
+          type: boolean
     SourceInput:
       type: object
       additionalProperties: false
