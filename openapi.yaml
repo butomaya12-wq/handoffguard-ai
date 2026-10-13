@@ -53,6 +53,26 @@ paths:
                 $ref: '#/components/schemas/Order'
         '404':
           $ref: '#/components/responses/NotFound'
+  /api/v1/orders/{order_id}/revisions:
+    parameters:
+      - $ref: '#/components/parameters/OrderId'
+    get:
+      tags: [orders]
+      operationId: listOrderRevisions
+      summary: List saved approved versions of the order (not draft changes)
+      responses:
+        '200':
+          description: Approved revisions, ordered oldest first
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/OrderRevision'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
   /api/v1/orders/{order_id}/production-reviews:
     parameters:
       - $ref: '#/components/parameters/OrderId'
@@ -346,6 +366,39 @@ components:
             completed_quantity:
               type: integer
               minimum: 0
+    OrderRevision:
+      type: object
+      description: Snapshot of a formally approved order revision, never an unapproved proposal.
+      required: [id, order_id, revision_number, product_code, quantity, unit_sales_price_kopeks, delivery_date, approved_source_id, created_at]
+      properties:
+        id:
+          type: string
+        order_id:
+          type: string
+        revision_number:
+          type: integer
+          minimum: 1
+        product_code:
+          type: string
+        quantity:
+          type: integer
+          minimum: 1
+        unit_sales_price_kopeks:
+          type: integer
+          minimum: 0
+        unit_est_cost_kopeks:
+          type: [integer, 'null']
+          minimum: 0
+        delivery_date:
+          type: string
+          format: date
+        approved_source_id:
+          type: string
+        approved_change_id:
+          type: [string, 'null']
+        created_at:
+          type: string
+          format: date-time
     ProductionReviewInput:
       type: object
       additionalProperties: false

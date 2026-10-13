@@ -2,7 +2,7 @@
 from datetime import date, datetime, timezone
 from uuid import uuid4
 
-from sqlalchemy import Date, DateTime, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import CheckConstraint, Date, DateTime, ForeignKey, Integer, JSON, String, Text, UniqueConstraint
 from sqlalchemy.orm import DeclarativeBase, Mapped, mapped_column
 
 
@@ -30,6 +30,30 @@ class Order(Base):
     revision: Mapped[int] = mapped_column(Integer, default=1)
     production_status: Mapped[str] = mapped_column(String(32), default="NOT_STARTED")
     completed_quantity: Mapped[int] = mapped_column(Integer, default=0)
+
+
+class OrderRevision(Base):
+    """Snapshot of approved commercial terms; only approval flow may append rows."""
+
+    __tablename__ = "order_revisions"
+    __table_args__ = (
+        UniqueConstraint("order_id", "revision_number", name="uq_order_revision_number"),
+        CheckConstraint("revision_number >= 1", name="ck_order_revision_positive"),
+        CheckConstraint("quantity > 0", name="ck_order_revision_quantity_positive"),
+        CheckConstraint("unit_sales_price_kopeks >= 0", name="ck_order_revision_price_positive"),
+    )
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=make_id)
+    order_id: Mapped[str] = mapped_column(ForeignKey("orders.id"), index=True, nullable=False)
+    revision_number: Mapped[int] = mapped_column(Integer, nullable=False)
+    product_code: Mapped[str] = mapped_column(String(100), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    unit_sales_price_kopeks: Mapped[int] = mapped_column(Integer, nullable=False)
+    unit_est_cost_kopeks: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    delivery_date: Mapped[date] = mapped_column(Date, nullable=False)
+    approved_source_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    approved_change_id: Mapped[str | None] = mapped_column(ForeignKey("changes.id"), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
 
 
 class ProductionReview(Base):
