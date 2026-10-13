@@ -2,7 +2,7 @@
 export type Order = {id:string; product_code:string; quantity:number; unit_sales_price_kopeks:number; unit_est_cost_kopeks:number|null; delivery_date:string; approved_source_id:string; revision:number; production_status:string; completed_quantity:number};
 export type Revision = {id:string; revision_number:number; quantity:number; unit_sales_price_kopeks:number; delivery_date:string; approved_change_id:string|null; created_at:string};
 export type CreateOrder = {product_code:string; quantity:number; unit_sales_price_kopeks:number; delivery_date:string; approved_source_id:string; unit_est_cost_kopeks?:number};
-export type Change = {id:string;order_id:string;baseline_revision:number;requested_quantity:number|null;status:string};
+export type Change = {id:string;order_id:string;baseline_revision:number;reason:string;requested_quantity:number|null;status:string};
 export type ChangeWorkflow = Change & {assessment:Assessment|null;customer_accepted:boolean};
 export type Assessment = {readiness:string;fingerprint:string;delta_revenue_kopeks:number;issues:string[];proposed_quantity:number;proposed_delivery_date:string};
 
