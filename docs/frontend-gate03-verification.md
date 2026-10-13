@@ -28,7 +28,7 @@
 
 - Generate and commit `frontend/package-lock.json`, switch CI to `npm ci`.
 - Perform actual browser smoke test with local FastAPI and synthetic credentials: create V1, production review, submit approval, record matching customer consent, apply V2, verify V1 history.
-- Review incomplete-process restart behavior and the absence of read-only API access to assessment and customer acceptance.
+- **Resolved in PR #3:** GET /api/v1/orders/{order_id}/changes restores persisted assessment and acceptance state. Backend read-only and role-gate test added; frontend UI restore test added. Manual Mac browser recheck remains pending.
 - Update docs/screenshots with observed results. Docker, PostgreSQL, cloud deployment and authenticated user management are future gates.
 
 ## Learning point
