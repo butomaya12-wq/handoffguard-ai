@@ -43,15 +43,10 @@ def test_existing_gate01_database_does_not_get_silent_fake_v1(tmp_path):
                     'legacy-source', 1, 'NOT_STARTED', 0)
         """))
     engine.dispose()
-    # Startup creates missing tables but cannot truthfully reconstruct prior history.
-    with TestClient(create_app(url)) as api:
-        response = api.get("/api/v1/orders/old-1/revisions", headers={
-            "Authorization": "Bearer test-sales-token"
-        })
-    # Never mistake silent empty history for verified migration success.
-    assert response.status_code in (200, 409, 503)
-    if response.status_code == 200:
-        assert response.json() == []
+    # Refuse to serve incomplete history: only an explicit audited migration may fix this.
+    with pytest.raises(RuntimeError, match="lack approved V1 snapshots"):
+        with TestClient(create_app(url)):
+            pass
 
 
 @pytest.mark.parametrize("_attempt", range(5))
