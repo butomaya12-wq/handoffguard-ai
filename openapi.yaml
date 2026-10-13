@@ -4,7 +4,7 @@ info:
   version: 0.3.0-draft
   description: |
     Contract for a synthetic B2B manufacturing change-impact and approval demo.
-    This contract is a design draft; endpoints are not yet implemented.
+    Contract includes implemented Gate 01, V1 history, and sales-recorded customer acceptance / V2 application. Source ingestion remains planned.
 servers:
   - url: http://localhost:8000
 security:
@@ -158,7 +158,9 @@ paths:
           content:
             application/json:
               schema:
-                $ref: '#/components/schemas/Source'
+                $ref: '#/components/schemas/CustomerAcceptanceReceipt'
+        '403':
+          $ref: '#/components/responses/Forbidden'
         '404':
           $ref: '#/components/responses/NotFound'
         '422':
@@ -231,8 +233,8 @@ paths:
     post:
       tags: [approval]
       operationId: recordCustomerAcceptance
-      summary: Save verified customer evidence matching approved proposal
-      description: Acceptance is evidence recorded and checked by a human, not an e-signature.
+      summary: Sales records evidence of customer agreement matching approved terms
+      description: Sales attests to evidence; this demo does not cryptographically verify customer identity or signatures.
       requestBody:
         required: true
         content:
@@ -241,7 +243,7 @@ paths:
               $ref: '#/components/schemas/CustomerAcceptanceInput'
       responses:
         '201':
-          description: Verified matching acceptance recorded
+          description: Matching customer agreement recorded by authenticated sales user
           content:
             application/json:
               schema:
@@ -256,10 +258,10 @@ paths:
     post:
       tags: [approval]
       operationId: applyApprovedChange
-      summary: Create immutable new order revision only after both approvals
+      summary: Atomically apply V2 only after current internal approval and matching recorded customer agreement
       responses:
         '201':
-          description: New approved revision and handoff record created
+          description: New approved order revision created
           content:
             application/json:
               schema:
@@ -562,9 +564,24 @@ components:
           type: string
         evidence_text:
           type: string
+    CustomerAcceptanceReceipt:
+      type: object
+      required: [id, change_id, recorded_at, recorded_by, assessment_fingerprint]
+      properties:
+        id:
+          type: string
+        change_id:
+          type: string
+        recorded_at:
+          type: string
+          format: date-time
+        recorded_by:
+          type: string
+        assessment_fingerprint:
+          type: string
     Handoff:
       type: object
-      required: [order_id, change_id, approved_revision, applied_at]
+      required: [order_id, change_id, approved_revision, approved_source_id]
       properties:
         order_id:
           type: string
@@ -573,6 +590,5 @@ components:
         approved_revision:
           type: integer
           minimum: 2
-        applied_at:
+        approved_source_id:
           type: string
-          format: date-time

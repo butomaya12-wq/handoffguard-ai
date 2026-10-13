@@ -96,3 +96,21 @@ class ApprovalDecision(Base):
     action: Mapped[str] = mapped_column(String(16))
     note: Mapped[str] = mapped_column(Text)
     decided_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+
+
+class CustomerAcceptance(Base):
+    """Sales-recorded evidence of customer agreement; not cryptographic proof of consent."""
+
+    __tablename__ = "customer_acceptances"
+    __table_args__ = (UniqueConstraint("change_id", name="uq_customer_acceptance_change"),)
+
+    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=make_id)
+    change_id: Mapped[str] = mapped_column(ForeignKey("changes.id"), nullable=False, index=True)
+    assessment_fingerprint: Mapped[str] = mapped_column(String(64), nullable=False)
+    quantity: Mapped[int] = mapped_column(Integer, nullable=False)
+    unit_sales_price_kopeks: Mapped[int] = mapped_column(Integer, nullable=False)
+    delivery_date: Mapped[date] = mapped_column(Date, nullable=False)
+    source_name: Mapped[str] = mapped_column(String(200), nullable=False)
+    evidence_text: Mapped[str] = mapped_column(Text, nullable=False)
+    recorded_by: Mapped[str] = mapped_column(String(128), nullable=False)
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now, nullable=False)
