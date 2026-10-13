@@ -27,7 +27,8 @@
 ## Blocking tasks before merging or claiming completed full stack
 
 - Generate and commit `frontend/package-lock.json`, switch CI to `npm ci`.
-- Perform actual browser smoke test with local FastAPI and synthetic credentials: create V1, production review, submit approval, record matching customer consent, apply V2, verify V1 history.
+- Browser smoke test identified intermittent 403 on customer acceptance with auto-filled password inputs. Mitigation: user-activated Vite-local role mode now resolves hardcoded synthetic tokens outside password fields. This requires Mac re-test; production RBAC remains enforced by FastAPI.
+- Complete actual browser smoke test: create V1, production review, submit approval, record matching customer acceptance, apply V2, verify V1 history.
 - **Resolved in PR #3:** GET /api/v1/orders/{order_id}/changes restores persisted assessment and acceptance state. Backend read-only and role-gate test added; frontend UI restore test added. Manual Mac browser recheck remains pending.
 - Update docs/screenshots with observed results. Docker, PostgreSQL, cloud deployment and authenticated user management are future gates.
 
