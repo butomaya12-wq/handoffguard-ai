@@ -1,4 +1,4 @@
-# Backend — Gate 01
+# Backend — Gate 02 (educational MVP)
 
 Python 3.11+; FastAPI, Pydantic v2, SQLAlchemy. Local database: SQLite.
 
@@ -6,7 +6,7 @@ Python 3.11+; FastAPI, Pydantic v2, SQLAlchemy. Local database: SQLite.
 
 ```bash
 cd backend
-python -m pip install -e . pytest httpx
+python -m pip install -e . pytest httpx pyyaml
 python -m pytest -q
 ```
 
@@ -30,19 +30,24 @@ These environment-token identities are for an educational demo, **not production
 
 | Operation | Required role | Behavior |
 |---|---|---|
-| POST /api/v1/orders | sales | Create approved baseline revision 1 |
+| POST /api/v1/orders | sales | Create approved baseline revision 1 |\n| GET /api/v1/orders/{order_id}/revisions | authenticated | Read approved snapshots V1, V2… |
 | GET /api/v1/orders/{order_id} | any known role | Get approved baseline; proposals cannot modify it |
 | POST /api/v1/orders/{order_id}/production-reviews | production | Record progress/feasibility; invalidates previous assessments |
 | POST /api/v1/orders/{order_id}/changes | sales | Create a non-binding proposal |
 | GET /api/v1/changes/{change_id} | any known role | Read proposal lifecycle status |
 | POST /api/v1/changes/{change_id}/assess | sales | Deterministic financial and feasibility assessment |
 | POST /api/v1/changes/{change_id}/submit | sales | Submit current feasible assessment for internal approval |
-| POST /api/v1/changes/{change_id}/decision | approver | Approve or reject, tied to exact assessment fingerprint |
+| POST /api/v1/changes/{change_id}/decision | approver | Approve or reject, tied to exact assessment fingerprint |\n| POST /api/v1/changes/{change_id}/customer-acceptance | sales | Record matching customer terms and evidence attribution (not e-signature) |\n| POST /api/v1/changes/{change_id}/apply | approver | Conditional update and append next approved revision after both approvals |
 
 `409` — state transition cannot proceed or assessment stale. `403` — authenticated role is not authorized. `401` — missing/invalid token. `422` — invalid input.
 
 **Money amounts are integer kopeks.** Null estimated costs mean unknown, never zero. This backend does not ingest client documents or update factory execution.
 
+## Migration and compatibility (important)
+
+Existing Gate 01 SQLite database files may contain orders without V1 snapshots. `Base.metadata.create_all()` does not reconstruct old approval evidence. The app **refuses startup** if an existing order lacks a V1 record. Make a backup and perform a separately reviewed, evidence-backed data migration; do not delete the original database and do not invent approvals. There is **no automated migration/backfill in this PR**. New, empty demo databases start normally.
+
 ## Still to implement
 
-Customer acceptance and the actual revision-application endpoint; source evidence/audit trail, full OpenAPI coverage, PostgreSQL integration/migrations, frontend and deployment. These gaps are intentional at Gate 01, not hidden functionality.
+Verified client authentication/signature, durable immutable audit events, full source-ingestion API, PostgreSQL high-concurrency integration/migrations, frontend and cloud deployment. OpenAPI is a draft with a planned source endpoint. Tests cover a five-repeat concurrent SQLite scenario, not a production load test or proof against all race schedules. These limitations must not be represented as completed production features.
+
