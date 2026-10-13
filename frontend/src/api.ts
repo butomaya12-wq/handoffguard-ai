@@ -16,6 +16,7 @@ export const api={
   createOrder:(token:string,data:CreateOrder)=>request<Order>('/orders',token,'POST',data),
   getOrder:(token:string,orderId:string)=>request<Order>('/orders/'+id(orderId),token),
   revisions:(token:string,orderId:string)=>request<Revision[]>('/orders/'+id(orderId)+'/revisions',token),
+  getChange:(token:string,changeId:string)=>request<Change>('/changes/'+id(changeId),token),
   productionReview:(token:string,orderId:string,data:{production_status:string;completed_quantity:number;feasibility:string;note:string})=>request<object>('/orders/'+id(orderId)+'/production-reviews',token,'POST',data),
   createChange:(token:string,orderId:string,data:{reason:string;requested_quantity:number})=>request<Change>('/orders/'+id(orderId)+'/changes',token,'POST',data),
   assess:(token:string,changeId:string)=>request<Assessment>('/changes/'+id(changeId)+'/assess',token,'POST'),
