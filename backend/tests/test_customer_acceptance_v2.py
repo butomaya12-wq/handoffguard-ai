@@ -87,3 +87,81 @@ def test_only_authorized_roles_can_accept_or_apply(client, headers, make_order):
                         "delivery_date": "2026-11-12", "source_name": "evidence",
                         "evidence_text": "Confirmed"})
     assert r.status_code == 403
+
+
+def test_parallel_apply_same_order_has_one_winner(client, headers, make_order):
+    """Two genuine concurrent HTTP apply calls may not both create V2."""
+    from concurrent.futures import ThreadPoolExecutor
+    from threading import Barrier
+
+    order, first_id = prepare(client, headers, make_order)
+    assert acceptance(client, headers, first_id).status_code == 201
+
+    # A second proposal receives the same V1 baseline and approval.
+    change = client.post(f"/api/v1/orders/{order['id']}/changes", headers=headers["sales"],
+                         json={"reason": "Second manager requests 130", "requested_quantity": 130})
+    assert change.status_code == 201
+    second_id = change.json()["id"]
+    assessment = client.post(f"/api/v1/changes/{second_id}/assess", headers=headers["sales"])
+    assert assessment.status_code == 200
+    assert client.post(f"/api/v1/changes/{second_id}/submit", headers=headers["sales"]).status_code == 200
+    assert client.post(f"/api/v1/changes/{second_id}/decision", headers=headers["approver"],
+                       json={"action": "APPROVE",
+                             "assessment_fingerprint": assessment.json()["fingerprint"],
+                             "note": "Approved second proposal"}).status_code == 200
+    accepted = client.post(f"/api/v1/changes/{second_id}/customer-acceptance",
+                           headers=headers["sales"],
+                           json={"quantity": 130, "unit_sales_price_kopeks": 100000,
+                                 "delivery_date": "2026-11-12",
+                                 "source_name": "customer-130", "evidence_text": "Confirmed 130"})
+    assert accepted.status_code == 201, accepted.text
+
+    barrier = Barrier(2)
+    def apply_once(change_id):
+        barrier.wait(timeout=5)
+        return client.post(f"/api/v1/changes/{change_id}/apply", headers=headers["approver"])
+
+    with ThreadPoolExecutor(max_workers=2) as pool:
+        first = pool.submit(apply_once, first_id)
+        second = pool.submit(apply_once, second_id)
+        results = [first.result(timeout=15), second.result(timeout=15)]
+
+    assert sorted(r.status_code for r in results) == [201, 409], [r.text for r in results]
+    history = client.get(f"/api/v1/orders/{order['id']}/revisions",
+                         headers=headers["sales"]).json()
+    assert len(history) == 2
+    assert [revision["revision_number"] for revision in history] == [1, 2]
+    current = client.get(f"/api/v1/orders/{order['id']}", headers=headers["sales"]).json()
+    assert current["revision"] == 2
+    assert current["quantity"] == history[1]["quantity"]
+
+
+def test_internal_cost_change_is_preserved_in_approved_revision(client, headers, make_order):
+    """Internal estimated cost is part of the fingerprint of the approved change."""
+    order = make_order(unit_est_cost_kopeks=60000)
+    review = client.post(f"/api/v1/orders/{order['id']}/production-reviews",
+                         headers=headers["production"],
+                         json={"production_status": "NOT_STARTED", "completed_quantity": 0,
+                               "feasibility": "CONFIRMED", "note": "Confirmed"})
+    assert review.status_code == 201
+    change = client.post(f"/api/v1/orders/{order['id']}/changes", headers=headers["sales"],
+                         json={"reason": "Quantity plus revised internal cost",
+                               "requested_quantity": 120, "requested_unit_est_cost_kopeks": 65000,
+                               "one_time_change_cost_kopeks": 0})
+    assert change.status_code == 201
+    change_id = change.json()["id"]
+    assessment = client.post(f"/api/v1/changes/{change_id}/assess", headers=headers["sales"])
+    assert assessment.status_code == 200
+    assert assessment.json()["delta_est_cost_kopeks"] == 120 * 65000 - 100 * 60000
+    assert client.post(f"/api/v1/changes/{change_id}/submit", headers=headers["sales"]).status_code == 200
+    assert client.post(f"/api/v1/changes/{change_id}/decision", headers=headers["approver"],
+                       json={"action": "APPROVE",
+                             "assessment_fingerprint": assessment.json()["fingerprint"],
+                             "note": "Cost reviewed"}).status_code == 200
+    assert acceptance(client, headers, change_id).status_code == 201
+    assert client.post(f"/api/v1/changes/{change_id}/apply",
+                       headers=headers["approver"]).status_code == 201
+    history = client.get(f"/api/v1/orders/{order['id']}/revisions",
+                         headers=headers["sales"]).json()
+    assert history[0]["unit_est_cost_kopeks"] == 60000
+    assert history[1]["unit_est_cost_kopeks"] == 65000
