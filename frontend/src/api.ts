@@ -3,6 +3,7 @@ export type Order = {id:string; product_code:string; quantity:number; unit_sales
 export type Revision = {id:string; revision_number:number; quantity:number; unit_sales_price_kopeks:number; delivery_date:string; approved_change_id:string|null; created_at:string};
 export type CreateOrder = {product_code:string; quantity:number; unit_sales_price_kopeks:number; delivery_date:string; approved_source_id:string; unit_est_cost_kopeks?:number};
 export type Change = {id:string;order_id:string;baseline_revision:number;requested_quantity:number|null;status:string};
+export type ChangeWorkflow = Change & {assessment:Assessment|null;customer_accepted:boolean};
 export type Assessment = {readiness:string;fingerprint:string;delta_revenue_kopeks:number;issues:string[];proposed_quantity:number;proposed_delivery_date:string};
 
 async function request<T>(path:string,token:string,method:'GET'|'POST'='GET',data?:object):Promise<T>{
@@ -17,6 +18,7 @@ export const api={
   getOrder:(token:string,orderId:string)=>request<Order>('/orders/'+id(orderId),token),
   revisions:(token:string,orderId:string)=>request<Revision[]>('/orders/'+id(orderId)+'/revisions',token),
   getChange:(token:string,changeId:string)=>request<Change>('/changes/'+id(changeId),token),
+  listChanges:(token:string,orderId:string)=>request<ChangeWorkflow[]>('/orders/'+id(orderId)+'/changes',token),
   productionReview:(token:string,orderId:string,data:{production_status:string;completed_quantity:number;feasibility:string;note:string})=>request<object>('/orders/'+id(orderId)+'/production-reviews',token,'POST',data),
   createChange:(token:string,orderId:string,data:{reason:string;requested_quantity:number})=>request<Change>('/orders/'+id(orderId)+'/changes',token,'POST',data),
   assess:(token:string,changeId:string)=>request<Assessment>('/changes/'+id(changeId)+'/assess',token,'POST'),
