@@ -1,7 +1,7 @@
 import {render,screen,cleanup,fireEvent,waitFor} from '@testing-library/react';
 import {describe,it,expect,afterEach,vi} from 'vitest';
 afterEach(()=>{cleanup();vi.unstubAllGlobals();sessionStorage.clear();});
-import App from './App';
+import App,{roleToken} from './App';
 describe('workflow UI',()=>{
   it('shows real workflow stages, not fabricated revisions',()=>{
     render(<App/>);
@@ -44,6 +44,13 @@ describe('workflow UI',()=>{
     expect((screen.getByRole('button',{name:'4. Зафиксировать подтверждение'}) as HTMLButtonElement).disabled).toBe(false);
     expect((screen.getByRole('button',{name:/Применить V2/}) as HTMLButtonElement).disabled).toBe(true);
     expect(screen.getByText(/20 000,00 ₽/)).toBeTruthy();
+  });
+  it('ignores browser autofilled role values when local demo mode is active',()=>{
+    const wrongAutofill={sales:'demo-approver',production:'demo-sales',approver:'demo-production'};
+    expect(roleToken('sales',wrongAutofill,true)).toBe('demo-sales');
+    expect(roleToken('production',wrongAutofill,true)).toBe('demo-production');
+    expect(roleToken('approver',wrongAutofill,true)).toBe('demo-approver');
+    expect(roleToken('sales',wrongAutofill,false)).toBe('demo-approver');
   });
   it('cannot apply V2 until both approval steps',()=>{
     render(<App/>);
