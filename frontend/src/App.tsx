@@ -32,7 +32,7 @@ export default function App(){
     setOrder(current);setHistory(approved);setLookup(current.id);setChange(null);setAssessment(null);setAccepted(false);
   }
   async function refresh(id:string){const [current,approved]=await Promise.all([api.getOrder(tokens.sales,id),api.revisions(tokens.sales,id)]);setOrder(current);setHistory(approved);}
-  const canAssess=!!change&&change.status==='DRAFT';
+  const canAssess=!!change&&(change.status==='DRAFT'||change.status==='ASSESSMENT_REQUIRED');
   const canSubmit=!!change&&change.status==='ASSESSMENT_REQUIRED'&&assessment?.readiness==='READY_FOR_APPROVAL';
   const canDecide=!!change&&change.status==='PENDING_APPROVAL'&&!!assessment;
   const approved=change?.status==='INTERNALLY_APPROVED';
@@ -65,7 +65,7 @@ export default function App(){
         </section>
         <section className="panel">
           <div className="heading"><span className="overline">02 · PRODUCTION</span><h2>Проверка производства</h2><p>Изменение производственного состояния делает прежние оценки устаревшими.</p></div>
-          <form onSubmit={e=>{e.preventDefault();void run('Проверка производства',async()=>{if(!order)return;await api.productionReview(tokens.production,order.id,{production_status:review.status,completed_quantity:Number(review.count),feasibility:review.feasibility,note:review.note});setAssessment(null);setAccepted(false);await refresh(order.id);});}}>
+          <form onSubmit={e=>{e.preventDefault();void run('Проверка производства',async()=>{if(!order)return;await api.productionReview(tokens.production,order.id,{production_status:review.status,completed_quantity:Number(review.count),feasibility:review.feasibility,note:review.note});setAssessment(null);setAccepted(false);await refresh(order.id);if(change)setChange(await api.getChange(tokens.sales,change.id));});}}>
             <div className="grid two"><label>Стадия<select value={review.status} onChange={e=>setReview(s=>({...s,status:e.target.value}))}><option value="NOT_STARTED">Не начато</option><option value="IN_PRODUCTION">В производстве</option><option value="COMPLETED">Завершено</option></select></label><label>Изготовлено<input type="number" min="0" value={review.count} onChange={e=>setReview(s=>({...s,count:e.target.value}))}/></label><label>Возможность<select value={review.feasibility} onChange={e=>setReview(s=>({...s,feasibility:e.target.value}))}><option value="CONFIRMED">Подтверждена</option><option value="UNKNOWN">Неизвестна</option><option value="NOT_FEASIBLE">Невозможна</option></select></label><label>Комментарий<input value={review.note} onChange={e=>setReview(s=>({...s,note:e.target.value}))}/></label></div>
             <button disabled={busy||!order} className="button neutral">Сохранить проверку</button>
           </form>
