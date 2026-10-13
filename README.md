@@ -69,7 +69,7 @@ Backend checks are in `.github/workflows/backend-ci.yml`; frontend build/test ch
 - Browser end-to-end smoke test against a running backend.
 - PostgreSQL migration/integration, production-grade authentication, Docker Compose, public deployment and CI/CD deploy.
 - Observability, agent extension pack, security audit artifacts.
-- Resume in-progress approval after page reload (saved assessment fingerprint/customer acceptance needs read-only backend API).
+- Browser smoke verification of the new read-only workflow recovery API; restored assessments and customer acceptance are reloaded only after reopening a saved order. Production-grade login remains missing.
 
 **Not production ready.** No real customer records, production integration or claimed financial ROI.
 
