@@ -2,7 +2,7 @@
 
 **DataTalks.Club AI Dev Tools Zoomcamp 2026 — Project 1**
 
-> **Status:** Backend Gate 02 merged; Frontend Gate 03 in draft Pull Request #3. Not deployed. Synthetic educational demo only.
+> **Status:** Backend Gate 02 merged; Frontend Gate 03 merged into main. Not deployed. Synthetic educational demo only.
 
 HandoffGuard AI controls commercial changes to manufacturing orders. Sales may propose revised quantity/terms, production records feasibility, an authorized approver accepts or rejects, sales records a matching customer agreement, and only then may the server atomically create the next approved revision.
 
@@ -21,7 +21,7 @@ SQLite (local/testing) — PostgreSQL validation pending
 ```
 
 - **Backend Gate 01/02:** Order, immutable-by-workflow revision snapshots, Change, ProductionReview, ApprovalDecision, CustomerAcceptance, impact assessment. Numeric amounts are stored as integer kopeks; missing estimated cost stays unknown.
-- **Frontend Gate 03 (PR #3):** React, TypeScript, Vite, centralized API client, explicit user-controlled approval stages, version history, component/API tests.
+- **Frontend Gate 03 (merged PR #3):** React, TypeScript, Vite, centralized API client, explicit user-controlled approval stages, version history, component/API tests.
 - **Security scope:** synthetic local tokens for three roles (sales, production, approver). They must not be treated as production authentication or deployed as a public login interface.
 
 ## Run
@@ -31,7 +31,7 @@ SQLite (local/testing) — PostgreSQL validation pending
 
 ```sh
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
@@ -46,7 +46,7 @@ cd backend
 python -m pip install -e . pytest httpx pyyaml
 python -m pytest -q
 cd ../frontend
-npm install
+npm ci
 npm test
 npm run build
 ```
@@ -65,11 +65,9 @@ Backend checks are in `.github/workflows/backend-ci.yml`; frontend build/test ch
 
 ## Known gaps before course submission
 
-- Dependency lockfile and pinned reproducible frontend installation.
-- Browser end-to-end smoke test against a running backend.
+- Automated browser E2E tests (manual browser verification passed).
 - PostgreSQL migration/integration, production-grade authentication, Docker Compose, public deployment and CI/CD deploy.
 - Observability, agent extension pack, security audit artifacts.
-- Browser smoke verification of the new read-only workflow recovery API; restored assessments and customer acceptance are reloaded only after reopening a saved order. Production-grade login remains missing.
 
 **Not production ready.** No real customer records, production integration or claimed financial ROI.
 
