@@ -160,6 +160,30 @@ def create_app(database_url: str | None = None) -> FastAPI:
                 "reviewer_id": review.reviewer_id, "recorded_at": review.recorded_at,
                 **payload.model_dump()}
 
+    @app.get("/api/v1/orders/{order_id}/changes", operation_id="listOrderChanges")
+    def list_order_changes(order_id: str, db: Annotated[Session, Depends(get_db)],
+                           actor: Annotated[dict, Depends(require_role("sales", "approver"))]):
+        """Read persisted workflow state after a browser reload. This endpoint never approves anything."""
+        fetch_order(db, order_id)
+        changes = db.scalars(select(Change).where(Change.order_id == order_id)).all()
+        if not changes:
+            return []
+        accepted_ids = {
+            item.change_id: item.assessment_fingerprint
+            for item in db.scalars(select(CustomerAcceptance).where(
+                CustomerAcceptance.change_id.in_([change.id for change in changes])
+            )).all()
+        }
+        return [{
+            **serialize_change(change),
+            "assessment": change.assessment_result,
+            "customer_accepted": (
+                change.status in {"INTERNALLY_APPROVED", "APPLIED"}
+                and change.latest_fingerprint is not None
+                and accepted_ids.get(change.id) == change.latest_fingerprint
+            )
+        } for change in changes]
+
     @app.post("/api/v1/orders/{order_id}/changes", status_code=201, operation_id="createChange")
     def create_change(order_id: str, payload: ChangeInput, db: Annotated[Session, Depends(get_db)], actor: Annotated[dict, Depends(require_role("sales"))]):
         order = fetch_order(db, order_id)

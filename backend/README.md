@@ -33,6 +33,7 @@ These environment-token identities are for an educational demo, **not production
 | POST /api/v1/orders | sales | Create approved baseline revision 1 |\n| GET /api/v1/orders/{order_id}/revisions | authenticated | Read approved snapshots V1, V2… |
 | GET /api/v1/orders/{order_id} | any known role | Get approved baseline; proposals cannot modify it |
 | POST /api/v1/orders/{order_id}/production-reviews | production | Record progress/feasibility; invalidates previous assessments |
+| GET /api/v1/orders/{order_id}/changes | sales or approver | Read saved proposals, assessment snapshots and customer acceptance status to resume after refresh |
 | POST /api/v1/orders/{order_id}/changes | sales | Create a non-binding proposal |
 | GET /api/v1/changes/{change_id} | any known role | Read proposal lifecycle status |
 | POST /api/v1/changes/{change_id}/assess | sales | Deterministic financial and feasibility assessment |

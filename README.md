@@ -2,54 +2,75 @@
 
 **DataTalks.Club AI Dev Tools Zoomcamp 2026 — Project 1**
 
-> **Progress: Backend Gate 01 implemented and locally tested.** This is an educational development slice, **not a complete or deployed product**.
+> **Status:** Backend Gate 02 merged; Frontend Gate 03 in draft Pull Request #3. Not deployed. Synthetic educational demo only.
 
-HandoffGuard AI is a B2B manufacturing **change-impact assessment and approval gate**. When a customer requests changed terms on an approved order, the system checks the latest production review and estimated financial impact before an authorized company approver may approve the proposal.
+HandoffGuard AI controls commercial changes to manufacturing orders. Sales may propose revised quantity/terms, production records feasibility, an authorized approver accepts or rejects, sales records a matching customer agreement, and only then may the server atomically create the next approved revision.
 
-**Critical invariant:** a customer message, AI output, or sales manager request cannot directly modify the approved order or pause existing production.
+**Invariant:** customer messages, AI-generated text, or sales requests must not directly modify approved orders or pause production.
 
-## Current implementation (Gate 01)
+## Architecture
 
-- FastAPI backend with persistent SQLAlchemy tables (SQLite for local/test; PostgreSQL URL supported by SQLAlchemy when a driver is installed).
-- Original order, human production reviews, proposed change, deterministic impact assessment, internal approval decision.
-- Authenticated role gates: `sales`, `production`, `approver`; role is **never trusted from request JSON**.
-- Monetary calculations in **integer kopeks**; missing costs yield null rather than invented zeros.
-- Reviews preserve a verified production snapshot. New production information invalidates pending and even previously approved assessments.
-- Change proposals cannot mutate the approved order. Approval in Gate 01 is **internal only**; revised order application is **not implemented**.
-- 11 locally passing pytest API checks, covering three primary gates, stale assessment and role restrictions.
-
-### Not yet implemented
-
-- Customer acceptance, approved revision application, document/source ingestion, true LLM extraction, integrations with Bitrix24 or 1C.
-- Frontend, production authentication/SSO, database migrations, full PostgreSQL integration tests, Docker Compose, cloud deployment, CI **deployment**, agent extension pack, full security review.
-- The repository's [OpenAPI contract](openapi.yaml) contains three planned operations not implemented in Gate 01: addSource, recordCustomerAcceptance and applyApprovedChange. Existing route schemas will be hardened in later phases.
-- No real business data or ROI is claimed.
-
-## Run / test the backend
-
-See [backend/README.md](backend/README.md). Simplest test commands (Python 3.11+):
-
-```bash
-cd backend
-python -m pip install -e . pytest httpx
-python -m pytest -q
+```text
+Browser (React + TypeScript)
+          ↓ typed client: frontend/src/api.ts
+        /api/v1
+          ↓ bearer authorization enforced on server
+FastAPI (backend/app/main.py)
+          ↓ SQLAlchemy, revision compare-and-swap
+SQLite (local/testing) — PostgreSQL validation pending
 ```
 
-Local API documentation: `http://127.0.0.1:8000/docs` after configuring environment tokens and running `uvicorn app.main:app --reload`.
+- **Backend Gate 01/02:** Order, immutable-by-workflow revision snapshots, Change, ProductionReview, ApprovalDecision, CustomerAcceptance, impact assessment. Numeric amounts are stored as integer kopeks; missing estimated cost stays unknown.
+- **Frontend Gate 03 (PR #3):** React, TypeScript, Vite, centralized API client, explicit user-controlled approval stages, version history, component/API tests.
+- **Security scope:** synthetic local tokens for three roles (sales, production, approver). They must not be treated as production authentication or deployed as a public login interface.
 
-## Product and engineering documents
+## Run
+
+1. Follow [backend/README.md](backend/README.md) and start FastAPI at `http://127.0.0.1:8000` with **synthetic** local role tokens.
+2. In a second terminal, run the React frontend:
+
+```sh
+cd frontend
+npm install
+npm run dev
+```
+
+3. Open `http://127.0.0.1:5173`, enter demo credentials, and walk through creating V1 → production review → change assessment → approver decision → customer acceptance → V2.
+
+Vite proxies `/api` to the local backend. For documentation and limits see [frontend/README.md](frontend/README.md).
+
+## Automated tests
+
+```sh
+cd backend
+python -m pip install -e . pytest httpx pyyaml
+python -m pytest -q
+cd ../frontend
+npm install
+npm test
+npm run build
+```
+
+Backend checks are in `.github/workflows/backend-ci.yml`; frontend build/test checks are in `.github/workflows/frontend-ci.yml`.
+
+## AI-assisted development evidence
 
 - [Product specification](product-spec.md)
-- [Architecture decisions](docs/decision-record.md)
-- [Synthetic golden scenarios](fixtures/golden-cases.json)
-- [Gate 01 verification record](docs/gate-01-verification.md)
-- [AI-assisted development record](docs/ai-development-workflow.md)
-- [Coding agent instructions](AGENTS.md)
+- [System decision record](docs/decision-record.md)
+- [AI development workflow](docs/ai-development-workflow.md)
+- [Frontend Gate 03 review record](docs/frontend-gate03-verification.md)
+- [Golden synthetic scenarios](fixtures/golden-cases.json)
+- [OpenAPI contract](openapi.yaml) (contains a planned source-ingestion route not yet implemented)
+- [Project instructions](AGENTS.md)
 
-## Planned full project stack
+## Known gaps before course submission
 
-React + TypeScript → FastAPI + PostgreSQL → Docker Compose → CI/CD → cloud deployment. The entire stack is not delivered yet.
+- Dependency lockfile and pinned reproducible frontend installation.
+- Browser end-to-end smoke test against a running backend.
+- PostgreSQL migration/integration, production-grade authentication, Docker Compose, public deployment and CI/CD deploy.
+- Observability, agent extension pack, security audit artifacts.
+- Browser smoke verification of the new read-only workflow recovery API; restored assessments and customer acceptance are reloaded only after reopening a saved order. Production-grade login remains missing.
 
-## Course submission
+**Not production ready.** No real customer records, production integration or claimed financial ROI.
 
-**Deadline:** 27 October 2026 at 04:00 in the course-account timezone. Submission requires this public repository and a final commit SHA. The course also requires peer reviews.
+For exact course rules and deadlines use the official [DataTalks.Club project page](https://datatalksclub.github.io/docs/courses/ai-dev-tools-zoomcamp/project/) and the cohort platform.
