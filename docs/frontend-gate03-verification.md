@@ -1,4 +1,4 @@
-# Frontend Gate 03 — review and verification log (2026-10-13)
+# Frontend Gate 03 — review and verification log (updated 2026-10-14)
 
 ## Context and delegation
 
@@ -18,19 +18,24 @@
 
 ## Independent checks and corrections
 
-- First frontend CI attempt: tests failed because component renders were not cleaned between tests; querying the V2 button found two copies.
-- Correction: `afterEach(cleanup)` added in `src/App.test.tsx`.
-- After correction, GitHub Actions run **38375643572**: 2 test files, **6 tests PASS**; `tsc -b && vite build` PASS.
-- Backend GitHub Actions run **38375643559**: SUCCESS (backend change not introduced by this PR).
-- The frontend code has **not** yet been manually tested in a browser against a live backend. Avoid claiming end-to-end PASS.
+- First frontend CI attempt failed because component renders were not cleaned between tests; correction: `afterEach(cleanup)` in `src/App.test.tsx`.
+- Frontend dependency hardening: Vitest `^3.2.4` → `^5.0.4`, generated and committed `frontend/package-lock.json`, and changed CI from `npm install` to `npm ci`.
+- On the developer's Mac (2026-10-14): `npm test` passed **8/8 tests** (2 files); `npm run build` passed; `npm audit` reported **0 vulnerabilities**. The zero-vulnerability result is for the installed dependency tree at the time of that check, not a permanent security guarantee.
+- Final commit `40356cf5d2e1d1f4c2c52f3335508ff2f180b075`: GitHub Actions frontend run **38616151162** passed `npm ci --no-audit --no-fund`, `npm test`, and `npm run build`; backend run **38616151154** passed backend API/contract/race-regression tests.
+- Browser E2E **manual PASS**, observed on the developer's Mac across 2026-10-13/14 with live React + FastAPI + SQLite, using synthetic data and local demo roles:
+  - Created and approved V1 for `FRAME-01`: **100 units** at **1,000 RUB/unit**; initial delivery date 2026-11-12.
+  - Production review confirmed; change proposal increased quantity to **120**, with assessed revenue delta **+20,000 RUB** and `READY_FOR_APPROVAL` assessment.
+  - Human approver explicitly accepted the internal decision; customer acceptance was recorded; user clicked Apply V2, saw successful completion and history showing both **V1 100** and **V2 120**.
+  - After closing both Terminal processes and restarting FastAPI and Vite, reloaded order `fbdd9c49-78b4-43b4-8f1b-a4fd996a8d2f` and confirmed historical V1 100 and current V2 120 still present. This verifies persisted revisions through restart in the local test environment.
+- Browser auto-fill caused/was associated with an intermittent sales-role 403 at customer-acceptance time (exact root cause **not proven**). The user-activated Vite-local demo-role mode selects role-correct synthetic tokens independently of password fields; actual server-side role authorization remains enforced. End-to-end success was subsequently observed.
+- `GET /api/v1/orders/{order_id}/changes` supports restoring server-persisted change/assessment/acceptance status after browser reload; read-only and role-gate backend test and frontend tests are included.
 
-## Blocking tasks before merging or claiming completed full stack
+## Review limits and follow-ups
 
-- Generate and commit `frontend/package-lock.json`, switch CI to `npm ci`.
-- Browser smoke test identified intermittent 403 on customer acceptance with auto-filled password inputs. Mitigation: user-activated Vite-local role mode now resolves hardcoded synthetic tokens outside password fields. This requires Mac re-test; production RBAC remains enforced by FastAPI.
-- Complete actual browser smoke test: create V1, production review, submit approval, record matching customer acceptance, apply V2, verify V1 history.
-- **Resolved in PR #3:** GET /api/v1/orders/{order_id}/changes restores persisted assessment and acceptance state. Backend read-only and role-gate test added; frontend UI restore test added. Manual Mac browser recheck remains pending.
-- Update docs/screenshots with observed results. Docker, PostgreSQL, cloud deployment and authenticated user management are future gates.
+- Manual browser E2E is evidenced by user-observed UI and screenshots in the working conversation; **no automated browser E2E suite** or checked-in screenshot artifact is claimed.
+- Local synthetic role selection is **not production authentication**. Production SSO/authentication, Docker, PostgreSQL, cloud deployment, CI security scanning and operational hardening are future gates.
+- `npm ci --no-audit` intentionally skips npm auditing in CI; the developer separately ran `npm audit` locally and observed zero reported vulnerabilities.
+- This gate is an educational full-stack vertical slice, not a production-ready release. PR #3 remains Draft pending final review/merge decision.
 
 ## Learning point
 
