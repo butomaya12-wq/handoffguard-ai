@@ -16,3 +16,8 @@ coverage/
 .DS_Store
 .idea/
 .vscode/
+
+# Generated package metadata and build caches
+*.egg-info/
+.vite/
+*.tsbuildinfo
