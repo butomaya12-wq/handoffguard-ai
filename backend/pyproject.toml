@@ -10,8 +10,19 @@ dependencies = [
   "pydantic>=2.0,<3",
 ]
 
+[project.optional-dependencies]
+# Installed only for PostgreSQL-backed deployment or disposable CI integration tests.
+postgres = ["psycopg[binary]>=3.2,<4"]
+# The public educational demo adds a signed, HttpOnly access-cookie perimeter.
+cloud = ["psycopg[binary]>=3.2,<4", "itsdangerous>=2.2,<3"]
+
 [dependency-groups]
 dev = ["httpx>=0.27,<1", "pytest>=8,<10"]
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["app", "app.*"]
+exclude = ["tests", "tests.*", "integration_tests", "integration_tests.*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

@@ -24,7 +24,7 @@ Always start with the scoped **GitHub Issue**, this file and [product-spec.md](p
 - **Business rules and authority:** [architecture decisions](docs/decision-record.md), [golden synthetic cases](fixtures/golden-cases.json).
 - **API / backend:** [OpenAPI draft](openapi.yaml), `backend/app/main.py`, `backend/app/schemas.py`, `backend/tests/`. OpenAPI includes a **planned source-ingestion route**; do not claim every documented route exists.
 - **Frontend:** `frontend/src/api.ts`, `frontend/src/App.tsx`, [frontend setup](frontend/README.md), [historical Gate 03 verification](docs/frontend-gate03-verification.md).
-- **Containers:** `docker-compose.yml`, `backend/Dockerfile`, `frontend/Dockerfile`, `frontend/nginx.conf`, `.github/workflows/docker-ci.yml`.
+- **Containers and cloud preflight:** local `docker-compose.yml`, `backend/Dockerfile`, `frontend/Dockerfile`, `frontend/nginx.conf`, `.github/workflows/docker-ci.yml`; cloud-only `Dockerfile.cloud`, `backend/app/cloud.py`, [Gate 05 design](docs/cloud-gate05-design.md), [safe deploy runbook](docs/cloud-gate05-runbook.md), `.github/workflows/postgres-ci.yml`.
 - **Agent roles, handoffs, evidence:** [team and handoffs](docs/agent-team-and-handoffs.md), [Gate 01 AI workflow record](docs/ai-development-workflow.md), [historical verification](docs/gate-01-verification.md).
 - **Submission criteria:** [official project rubric](https://github.com/DataTalksClub/ai-dev-tools-zoomcamp/blob/main/project/README.md), [submission issue #6](https://github.com/butomaya12-wq/handoffguard-ai/issues/6).
 
@@ -42,12 +42,13 @@ Business application roles (sales, production, approver) are distinct from the A
 8. Request explicit **human verification and merge approval**; record corrections, unresolved limits, task/PR links and handoff.
 9. Update the task issue, relevant docs and submission tracker with evidence; distinguish historical records from current code.
 
-## Current implementation (2026-10-17)
+## Current implementation (2026-10-18)
 
 - **Backend Gate 01/02 merged:** FastAPI + SQLAlchemy/SQLite, approved order V1/V2, change impact, human production review, fingerprint-bound internal approval, verified recorded customer agreement and persistence; backend API tests.
 - **Frontend Gate 03 merged ([PR #3](https://github.com/butomaya12-wq/handoffguard-ai/pull/3)):** React + TypeScript, centralized API client, browser-tested V1→V2 and Vitest tests.
 - **Docker Gate 04 merged ([PR #5](https://github.com/butomaya12-wq/handoffguard-ai/pull/5)):** Compose for frontend/backend/SQLite, Nginx proxy, named DB volume; Docker CI smoke passed.
-- **Gate 05 underway:** safe cloud deployment, secure access and persistent hosted database. **Not publicly deployed** as of this update.
-- **Still pending or limited:** PostgreSQL verification, public demo, CI/CD deployment and rollback, one-command all-tests runner, telemetry/alerting, on-call responder agent, automated browser E2E, mature production auth, and peer reviews.
+- **Testing Gate 06 merged ([PR #10](https://github.com/butomaya12-wq/handoffguard-ai/pull/10)):** `bash scripts/test-all.sh` runs backend pytest, frontend Vitest and production build on developer Mac and in CI (38 tests, historical result).
+- **Gate 05 preflight underway ([draft PR #12](https://github.com/butomaya12-wq/handoffguard-ai/pull/12)):** optional psycopg, real disposable PostgreSQL integration, protected same-origin cloud Docker image and CI smoke across container restart. No Render/Neon deployment, public URL or live DB verification yet.
+- **Still pending or limited:** actual hosted PostgreSQL/TLS and retention checks, live public-demo security/access validation, CI/CD deployment and rollback, telemetry/alerting, on-call responder agent, automated browser E2E, mature production auth, and three mandatory peer reviews.
 
 **Scope disclaimer:** An educational local synthetic demo is **not production-ready**. Existing local role tokens must never be used as public authentication. Historical Gate 01/03 notes capture their contemporary status, not the current overall status.

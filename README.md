@@ -2,7 +2,7 @@
 
 **DataTalks.Club AI Dev Tools Zoomcamp 2026 — Project 1**
 
-> **Status (2026-10-17):** Backend Gate 02, Frontend Gate 03 and Docker Gate 04 merged into `main`. Local full-stack demo and CI verified; **not publicly deployed**. Synthetic educational demo only.
+> **Status (2026-10-18):** Backend, frontend, Docker and one-command Testing Gate merged into `main`. PostgreSQL and private cloud-image CI verification is underway in [draft PR #12](https://github.com/butomaya12-wq/handoffguard-ai/pull/12). **No public deployment exists.** Synthetic educational demo only.
 
 HandoffGuard AI controls commercial changes to manufacturing orders. Sales may propose revised quantity/terms, production records feasibility, an authorized approver accepts or rejects, sales records a matching customer agreement, and only then may the server atomically create the next approved revision.
 
@@ -17,7 +17,7 @@ Browser (React + TypeScript)
           ↓ bearer authorization enforced on server
 FastAPI (backend/app/main.py)
           ↓ SQLAlchemy, revision compare-and-swap
-SQLite (local/testing) — PostgreSQL validation pending
+SQLite (local/Compose) / PostgreSQL (disposable CI integration verified in Gate 05)
 ```
 
 - **Backend Gate 01/02:** Order, immutable-by-workflow revision snapshots, Change, ProductionReview, ApprovalDecision, CustomerAcceptance, impact assessment. Numeric amounts are stored as integer kopeks; missing estimated cost stays unknown.
@@ -74,13 +74,14 @@ CI executes **the same `bash scripts/test-all.sh`** from a clean checkout and al
 - [Golden synthetic scenarios](fixtures/golden-cases.json)
 - [OpenAPI contract](openapi.yaml) (contains a planned source-ingestion route not yet implemented)
 - [Project instructions and context routing](AGENTS.md)
+- [Gate 05 cloud architecture proposal](docs/cloud-gate05-design.md) and [deploy/rollback runbook](docs/cloud-gate05-runbook.md) — preflight evidence, **not** a public URL
 
 Historical verification records reflect **the implementation at the time of that gate**, not the current overall readiness of HandoffGuard AI. The current submission tracker and CI results are the evidence index.
 
 ## Known gaps before course submission
 
 - Automated browser E2E tests (manual browser verification passed). The root-level test runner and failure-path check were verified in [GitHub Actions](https://github.com/butomaya12-wq/handoffguard-ai/actions/runs/39062476710).
-- Hosted PostgreSQL migration/integration, reviewed public-demo authentication, public deployment, CI/CD deploy and rollback.
+- Hosted managed PostgreSQL connection/retention, verified reviewer access on public HTTPS, public deployment, CI/CD deploy and rollback. PostgreSQL CI tests and Docker cloud-image smoke exist in draft [PR #12](https://github.com/butomaya12-wq/handoffguard-ai/pull/12), but do not prove hosted service readiness.
 - Correlated observability, impact alerting, safe on-call responder agent and security/release audit evidence.
 - Final reviewer-ready submission and three mandatory peer reviews.
 
