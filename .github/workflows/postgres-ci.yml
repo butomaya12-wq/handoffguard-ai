@@ -73,7 +73,7 @@ jobs:
           }
           with open(sys.argv[1], "w", encoding="utf-8") as env_file:
               for k, v in values.items():
-                  env_file.write(k + "=" + v + "\\n")
+                  env_file.write(k + "=" + v + "\n")
           PY
 
           docker run -d --network host --name handoffguard-cloud-ci \
