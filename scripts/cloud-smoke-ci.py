@@ -25,7 +25,7 @@ def request(method: str, path: str, *, body: bytes | None = None, headers=None):
     try:
         conn.request(method, path, body=body, headers=headers or {})
         response = conn.getresponse()
-        return response.status, dict(response.getheaders()), response.read()
+        return response.status, {k.lower(): v for k, v in response.getheaders()}, response.read()
     finally:
         conn.close()
 
@@ -49,7 +49,7 @@ def main():
 
     wait_for_health()
     status, headers, _ = request("GET", "/")
-    assert status == 302 and headers.get("Location") == "/demo/login", status
+    assert status == 302 and headers.get("location") == "/demo/login", status
     status, _, _ = request("GET", "/api/v1/orders/not-found",
                            headers={"Authorization": "Bearer " + sales})
     assert status == 401, status
@@ -59,8 +59,8 @@ def main():
     body = urlencode({"access_key": config["HANDOFFGUARD_DEMO_ACCESS_KEY"]}).encode()
     status, headers, _ = request("POST", "/demo/login", body=body,
                                 headers={"Content-Type": "application/x-www-form-urlencoded"})
-    assert status == 303 and "Set-Cookie" in headers, status
-    cookie = headers["Set-Cookie"].split(";", 1)[0]
+    assert status == 303 and "set-cookie" in headers, status
+    cookie = headers["set-cookie"].split(";", 1)[0]
 
     status, _, frontend = request("GET", "/", headers={"Cookie": cookie})
     assert status == 200 and b"html" in frontend.lower(), status
