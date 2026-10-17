@@ -39,19 +39,27 @@ npm run dev
 
 Vite proxies `/api` to the local backend. For documentation and limits see [frontend/README.md](frontend/README.md). For a single-command full-stack local start, use the [Docker Compose instructions](#docker-compose--gate-04) below.
 
-## Automated tests
+## Automated tests — one command
+
+**Prerequisites:** Bash, Python 3.11+ with `venv` and `pip`, Node.js 22 and npm. From the **repository root**, on a clean checkout, install dependencies once:
 
 ```sh
-cd backend
-python -m pip install -e . pytest httpx pyyaml
-python -m pytest -q
-cd ../frontend
-npm ci
-npm test
-npm run build
+python3 -m venv backend/.venv
+backend/.venv/bin/python -m pip install -e ./backend 'pytest>=8,<10' httpx pyyaml
+(cd frontend && npm ci)
 ```
 
-Backend checks are in `.github/workflows/backend-ci.yml`; frontend build/test checks are in `.github/workflows/frontend-ci.yml`; Docker Compose build, authorization and persistence smoke checks are in `.github/workflows/docker-ci.yml`. A unified root-level all-tests command is not yet available.
+Then run **all backend tests, frontend tests and the React production build** with one command:
+
+```sh
+bash scripts/test-all.sh
+```
+
+The runner selects `backend/.venv/bin/python` if present, otherwise a root `.venv/bin/python` or the system `python3`. Override with `HANDOFFGUARD_TEST_PYTHON` if necessary. It uses `set -euo pipefail` and exits nonzero on any failed stage: **it never silently skips a suite or prints PASS after a failure**. Dependencies must already be installed; missing `pytest` or `node_modules` is a setup error, not a passing test. The backend API tests use temporary synthetic SQLite files; the script does not run migrations or delete application databases/Compose volumes. The frontend build writes ignored files under `frontend/dist/`.
+
+On the developer Mac, the first attempt failed because `pytest` was missing from the backend venv; after installing dependencies, the same command reported **30 backend tests passed, 8 frontend tests passed, and a successful React build** (see [Issue #9 local evidence](https://github.com/butomaya12-wq/handoffguard-ai/issues/9)). One Starlette/httpx deprecation warning was emitted, not a failing test. These historical counts are not a claim about future runs.
+
+CI executes **the same `bash scripts/test-all.sh`** from a clean checkout and also verifies that an intentionally failing backend command makes the runner exit unsuccessfully: [full-stack workflow](.github/workflows/full-stack-ci.yml). Existing independent checks remain in [backend CI](.github/workflows/backend-ci.yml), [frontend CI](.github/workflows/frontend-ci.yml), and [Docker Compose CI](.github/workflows/docker-ci.yml).
 
 ## AI-assisted development evidence
 
@@ -71,7 +79,7 @@ Historical verification records reflect **the implementation at the time of that
 
 ## Known gaps before course submission
 
-- Automated browser E2E tests (manual browser verification passed); unified all-tests command from the repository root.
+- Automated browser E2E tests (manual browser verification passed); root-level test command exists but independent CI execution must be confirmed on this PR.
 - Hosted PostgreSQL migration/integration, reviewed public-demo authentication, public deployment, CI/CD deploy and rollback.
 - Correlated observability, impact alerting, safe on-call responder agent and security/release audit evidence.
 - Final reviewer-ready submission and three mandatory peer reviews.
