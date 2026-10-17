@@ -1,0 +1,101 @@
+name: Docker Compose build and smoke test
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  docker-compose:
+    runs-on: ubuntu-24.04
+    env:
+      HANDOFFGUARD_AUTH_TOKENS: '{"demo-sales":{"id":"sales-ci","role":"sales"},"demo-production":{"id":"production-ci","role":"production"},"demo-approver":{"id":"approver-ci","role":"approver"}}'
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Validate Docker Compose
+        run: docker compose config -q
+
+      - name: Build and start isolated Compose stack
+        run: docker compose up -d --build --wait --wait-timeout 120
+
+      - name: Verify proxy auth and SQLite persistence across recreation
+        run: |
+          python3 - <<'PY'
+          import json
+          import subprocess
+          import time
+          from urllib.error import HTTPError, URLError
+          from urllib.request import Request, urlopen
+
+          base = "http://127.0.0.1:8080/api/v1/orders"
+
+          def api(url, *, method="GET", payload=None, token=None):
+              headers = {}
+              if token:
+                  headers["Authorization"] = "Bearer " + token
+              if payload is not None:
+                  headers["Content-Type"] = "application/json"
+              request = Request(
+                  url,
+                  data=json.dumps(payload).encode() if payload is not None else None,
+                  headers=headers,
+                  method=method,
+              )
+              try:
+                  with urlopen(request, timeout=8) as response:
+                      return response.status, json.load(response)
+              except HTTPError as error:
+                  return error.code, json.load(error)
+
+          def wait_for_proxy():
+              for _ in range(30):
+                  try:
+                      return api(base + "/missing-order")
+                  except (URLError, TimeoutError):
+                      time.sleep(1)
+              raise AssertionError("Nginx proxy never became reachable")
+
+          status, body = wait_for_proxy()
+          assert status == 401 and body["detail"] == "Bearer token required", (status, body)
+
+          status, created = api(
+              base,
+              method="POST",
+              token="demo-sales",
+              payload={
+                  "product_code": "CI-DOCKER-SMOKE",
+                  "quantity": 100,
+                  "unit_sales_price_kopeks": 100000,
+                  "unit_est_cost_kopeks": 60000,
+                  "delivery_date": "2026-11-12",
+                  "approved_source_id": "synthetic-docker-ci",
+              },
+          )
+          assert status == 201 and created["revision"] == 1, (status, created)
+          order_id = created["id"]
+
+          # Intentionally retain the named volume: do NOT use down -v.
+          subprocess.run(["docker", "compose", "down"], check=True)
+          subprocess.run(
+              ["docker", "compose", "up", "-d", "--wait", "--wait-timeout", "120"],
+              check=True,
+          )
+          wait_for_proxy()
+          status, loaded = api(base + "/" + order_id, token="demo-sales")
+          assert status == 200, (status, loaded)
+          assert loaded["id"] == order_id, loaded
+          assert loaded["quantity"] == 100 and loaded["revision"] == 1, loaded
+          print("PASS: unauthorized request 401, create V1 201, V1 persists after down/up")
+          PY
+
+      - name: Docker logs on failure
+        if: failure()
+        run: docker compose logs --no-color --tail=100
+
+      - name: Stop CI containers
+        if: always()
+        run: docker compose down
