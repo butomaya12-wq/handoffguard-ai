@@ -44,3 +44,38 @@ jobs:
       - name: Run real PostgreSQL lifecycle and cloud-gate integration tests
         working-directory: backend
         run: python -m pytest -q integration_tests
+
+      - name: Build cloud-only single-image Docker stack
+        run: docker build --file Dockerfile.cloud --tag handoffguard-cloud-ci .
+
+      - name: Verify packaged cloud app with disposable PostgreSQL and random credentials
+        run: |
+          env_file="$(mktemp)"
+          chmod 600 "$env_file"
+          trap 'docker rm -f handoffguard-cloud-ci >/dev/null 2>&1 || true; rm -f "$env_file"' EXIT
+
+          python3 - "$env_file" <<'PY'
+          import json
+          import os
+          import secrets
+          import sys
+
+          mapping = {
+              secrets.token_urlsafe(48): {"id": "cloud-ci-" + role, "role": role}
+              for role in ("sales", "production", "approver")
+          }
+          values = {
+              "HANDOFFGUARD_DATABASE_URL": os.environ["HANDOFFGUARD_TEST_POSTGRES_URL"],
+              "HANDOFFGUARD_AUTH_TOKENS": json.dumps(mapping, separators=(",", ":")),
+              "HANDOFFGUARD_DEMO_ACCESS_KEY": secrets.token_urlsafe(48),
+              "HANDOFFGUARD_DEMO_COOKIE_SECRET": secrets.token_urlsafe(64),
+              "PORT": "18080",
+          }
+          with open(sys.argv[1], "w", encoding="utf-8") as env_file:
+              for k, v in values.items():
+                  env_file.write(k + "=" + v + "\\n")
+          PY
+
+          docker run -d --network host --name handoffguard-cloud-ci \
+            --env-file "$env_file" handoffguard-cloud-ci >/dev/null
+          python3 scripts/cloud-smoke-ci.py "$env_file"
