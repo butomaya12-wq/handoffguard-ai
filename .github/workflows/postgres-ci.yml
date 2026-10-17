@@ -1,0 +1,46 @@
+name: PostgreSQL integration — isolated CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-integration:
+    runs-on: ubuntu-24.04
+
+    # Ephemeral synthetic CI-only database; never connects to Render, Neon or local Mac.
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: handoffguard_ci
+          POSTGRES_PASSWORD: integration_only
+          POSTGRES_DB: handoffguard_ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U handoffguard_ci -d handoffguard_ci"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 12
+
+    env:
+      HANDOFFGUARD_TEST_POSTGRES_URL: postgresql+psycopg://handoffguard_ci:integration_only@127.0.0.1:5432/handoffguard_ci
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install backend PostgreSQL driver and integration test tools
+        run: python -m pip install -e './backend[postgres]' 'pytest>=8,<10' httpx pyyaml
+
+      - name: Run real PostgreSQL lifecycle and restart integration
+        working-directory: backend
+        run: python -m pytest -q integration_tests/test_postgres_integration.py
