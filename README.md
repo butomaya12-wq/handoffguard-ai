@@ -79,7 +79,7 @@ Historical verification records reflect **the implementation at the time of that
 
 ## Known gaps before course submission
 
-- Automated browser E2E tests (manual browser verification passed); root-level test command exists but independent CI execution must be confirmed on this PR.
+- Automated browser E2E tests (manual browser verification passed). The root-level test runner and failure-path check were verified in [GitHub Actions](https://github.com/butomaya12-wq/handoffguard-ai/actions/runs/39062476710).
 - Hosted PostgreSQL migration/integration, reviewed public-demo authentication, public deployment, CI/CD deploy and rollback.
 - Correlated observability, impact alerting, safe on-call responder agent and security/release audit evidence.
 - Final reviewer-ready submission and three mandatory peer reviews.
