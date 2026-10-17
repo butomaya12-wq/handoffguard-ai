@@ -1,0 +1,31 @@
+name: handoffguard-gate04-compose
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile
+    environment:
+      HANDOFFGUARD_DATABASE_URL: sqlite:////data/handoffguard.db
+      HANDOFFGUARD_AUTH_TOKENS: ${HANDOFFGUARD_AUTH_TOKENS:?Configure local demo tokens}
+    volumes:
+      - gate04_data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 15s
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "127.0.0.1:8080:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+volumes:
+  gate04_data:
