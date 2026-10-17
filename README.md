@@ -2,7 +2,7 @@
 
 **DataTalks.Club AI Dev Tools Zoomcamp 2026 — Project 1**
 
-> **Status:** Backend Gate 02 merged; Frontend Gate 03 merged into main. Not deployed. Synthetic educational demo only.
+> **Status (2026-10-17):** Backend Gate 02, Frontend Gate 03 and Docker Gate 04 merged into `main`. Local full-stack demo and CI verified; **not publicly deployed**. Synthetic educational demo only.
 
 HandoffGuard AI controls commercial changes to manufacturing orders. Sales may propose revised quantity/terms, production records feasibility, an authorized approver accepts or rejects, sales records a matching customer agreement, and only then may the server atomically create the next approved revision.
 
@@ -37,7 +37,7 @@ npm run dev
 
 3. Open `http://127.0.0.1:5173`, enter demo credentials, and walk through creating V1 → production review → change assessment → approver decision → customer acceptance → V2.
 
-Vite proxies `/api` to the local backend. For documentation and limits see [frontend/README.md](frontend/README.md).
+Vite proxies `/api` to the local backend. For documentation and limits see [frontend/README.md](frontend/README.md). For a single-command full-stack local start, use the [Docker Compose instructions](#docker-compose--gate-04) below.
 
 ## Automated tests
 
@@ -51,23 +51,30 @@ npm test
 npm run build
 ```
 
-Backend checks are in `.github/workflows/backend-ci.yml`; frontend build/test checks are in `.github/workflows/frontend-ci.yml`.
+Backend checks are in `.github/workflows/backend-ci.yml`; frontend build/test checks are in `.github/workflows/frontend-ci.yml`; Docker Compose build, authorization and persistence smoke checks are in `.github/workflows/docker-ci.yml`. A unified root-level all-tests command is not yet available.
 
 ## AI-assisted development evidence
 
 - [Product specification](product-spec.md)
 - [System decision record](docs/decision-record.md)
-- [AI development workflow](docs/ai-development-workflow.md)
-- [Frontend Gate 03 review record](docs/frontend-gate03-verification.md)
+- [Development agent roles, responsibility boundaries and task handoffs](docs/agent-team-and-handoffs.md)
+- [Public submission acceptance tracker — Issue #6](https://github.com/butomaya12-wq/handoffguard-ai/issues/6)
+- [Scoped agent team / context task — Issue #7](https://github.com/butomaya12-wq/handoffguard-ai/issues/7)
+- [Historical Gate 01 AI development workflow](docs/ai-development-workflow.md)
+- [Historical Frontend Gate 03 review record](docs/frontend-gate03-verification.md)
+- [Merged Docker Gate 04 PR #5](https://github.com/butomaya12-wq/handoffguard-ai/pull/5) and [passing Docker CI smoke](https://github.com/butomaya12-wq/handoffguard-ai/actions/runs/39047520377)
 - [Golden synthetic scenarios](fixtures/golden-cases.json)
 - [OpenAPI contract](openapi.yaml) (contains a planned source-ingestion route not yet implemented)
-- [Project instructions](AGENTS.md)
+- [Project instructions and context routing](AGENTS.md)
+
+Historical verification records reflect **the implementation at the time of that gate**, not the current overall readiness of HandoffGuard AI. The current submission tracker and CI results are the evidence index.
 
 ## Known gaps before course submission
 
-- Automated browser E2E tests (manual browser verification passed).
-- PostgreSQL migration/integration, production-grade authentication, public deployment and CI/CD deploy.
-- Observability, agent extension pack, security audit artifacts.
+- Automated browser E2E tests (manual browser verification passed); unified all-tests command from the repository root.
+- Hosted PostgreSQL migration/integration, reviewed public-demo authentication, public deployment, CI/CD deploy and rollback.
+- Correlated observability, impact alerting, safe on-call responder agent and security/release audit evidence.
+- Final reviewer-ready submission and three mandatory peer reviews.
 
 **Not production ready.** No real customer records, production integration or claimed financial ROI.
 
