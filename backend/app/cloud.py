@@ -80,6 +80,8 @@ def create_cloud_app(
         or len(token) < 32
         or token in {"demo-sales", "demo-production", "demo-approver",
                      "test-sales-token", "test-production-token", "test-approver-token"}
+        or (_testing_database_url is None and
+            token.lower().startswith(("demo-", "test-", "ci-", "local-")))
         or not isinstance(actor, dict)
         or not isinstance(actor.get("id"), str)
         or not actor["id"]
