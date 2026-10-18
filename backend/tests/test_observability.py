@@ -23,7 +23,7 @@ def event_capture(caplog):
 def emitted_events(event_capture):
     return [
         json.loads(record.getMessage())
-        for record in caplog.records
+        for record in event_capture.records
         if record.name == "handoffguard.observability"
         and record.getMessage().startswith(PREFIX)
     ]
