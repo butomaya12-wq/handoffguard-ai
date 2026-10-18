@@ -83,5 +83,13 @@ async def observe_business_operation(request: Request, call_next):
                 "metric_value": 1,
             }
             logger.info(json.dumps(event, ensure_ascii=False, separators=(",", ":")))
+            # Alert dispatch is best-effort and MUST NOT change business HTTP responses.
+            # Never log an exception here: it could contain transport credentials.
+            try:
+                monitor = getattr(request.app.state, "alert_monitor", None)
+                if monitor is not None:
+                    monitor.schedule(operation, status)
+            except Exception:
+                logger.warning('{"schema":"handoffguard.alerting.v1","event":"alert_dispatch_failed","environment":"demo"}')
             if response is not None:
                 response.headers[REQUEST_HEADER] = request_id
