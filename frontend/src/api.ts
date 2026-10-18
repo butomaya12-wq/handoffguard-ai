@@ -6,9 +6,24 @@ export type Change = {id:string;order_id:string;baseline_revision:number;reason:
 export type ChangeWorkflow = Change & {assessment:Assessment|null;customer_accepted:boolean};
 export type Assessment = {readiness:string;fingerprint:string;delta_revenue_kopeks:number;issues:string[];proposed_quantity:number;proposed_delivery_date:string};
 
+// Non-secret, random per-tab correlation ID. Never represents identity/authorization.
+const TRACE_STORAGE_KEY='handoffguard-workflow-trace';
+const UUID4=/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/;
+function workflowTraceId():string{
+  const existing=sessionStorage.getItem(TRACE_STORAGE_KEY);
+  if(existing&&UUID4.test(existing))return existing;
+  const bytes=globalThis.crypto.getRandomValues(new Uint8Array(16));
+  bytes[6]=(bytes[6]&15)|64;
+  bytes[8]=(bytes[8]&63)|128;
+  const hex=Array.from(bytes,b=>b.toString(16).padStart(2,'0')).join('');
+  const trace=[hex.slice(0,8),hex.slice(8,12),hex.slice(12,16),hex.slice(16,20),hex.slice(20)].join('-');
+  sessionStorage.setItem(TRACE_STORAGE_KEY,trace);
+  return trace;
+}
+
 async function request<T>(path:string,token:string,method:'GET'|'POST'='GET',data?:object):Promise<T>{
   if(!token.trim())throw new Error('Введите токен нужной роли в панели демо.');
-  const response=await fetch('/api/v1'+path,{method,headers:{Authorization:'Bearer '+token.trim(),...(data?{'Content-Type':'application/json'}:{})},...(data?{body:JSON.stringify(data)}:{})});
+  const response=await fetch('/api/v1'+path,{method,headers:{Authorization:'Bearer '+token.trim(),'X-Workflow-Trace':workflowTraceId(),...(data?{'Content-Type':'application/json'}:{})},...(data?{body:JSON.stringify(data)}:{})});
   if(!response.ok){let reason='HTTP '+response.status;try{const body=(await response.json()) as {detail?:unknown};if(typeof body.detail==='string')reason=body.detail;}catch{/* Non-JSON response */}throw new Error(response.status+': '+reason);}
   return await response.json() as T;
 }
