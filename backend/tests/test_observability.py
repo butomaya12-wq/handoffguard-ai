@@ -7,15 +7,16 @@ from uuid import UUID, uuid4
 PREFIX = '{"schema":"handoffguard.observability.v1"'
 
 
-def emitted_events(capfd):
+def emitted_events(caplog):
     return [
-        json.loads(line)
-        for line in capfd.readouterr().out.splitlines()
-        if line.startswith(PREFIX)
+        json.loads(record.getMessage())
+        for record in caplog.records
+        if record.name == "handoffguard.observability"
+        and record.getMessage().startswith(PREFIX)
     ]
 
 
-def test_synthetic_v1_to_v2_has_correlated_safe_events(client, headers, capfd):
+def test_synthetic_v1_to_v2_has_correlated_safe_events(client, headers, caplog):
     trace = str(uuid4())
 
     def auth(role):
@@ -82,7 +83,7 @@ def test_synthetic_v1_to_v2_has_correlated_safe_events(client, headers, capfd):
     history = client.get(f"/api/v1/orders/{order_id}/revisions", headers=auth("sales"))
     assert [row["quantity"] for row in history.json()] == [100, 120]
 
-    events = emitted_events(capfd)
+    events = emitted_events(caplog)
     assert len(events) == 10
     assert {ev["workflow_trace_id"] for ev in events} == {trace}
     assert len({ev["request_id"] for ev in events}) == len(events)
@@ -117,7 +118,7 @@ def test_synthetic_v1_to_v2_has_correlated_safe_events(client, headers, capfd):
         assert private not in raw
 
 
-def test_invalid_trace_and_secret_are_never_logged(client, headers, capfd):
+def test_invalid_trace_and_secret_are_never_logged(client, headers, caplog):
     secret = "PRIVATE-MALICIOUS-TRACE-DO-NOT-LOG"
     response = client.post("/api/v1/orders",
         headers={**headers["sales"], "X-Workflow-Trace": secret},
@@ -125,7 +126,7 @@ def test_invalid_trace_and_secret_are_never_logged(client, headers, capfd):
               "unit_sales_price_kopeks": 100000, "delivery_date": "2026-11-12",
               "approved_source_id": "synthetic-only"})
     assert response.status_code == 201
-    events = emitted_events(capfd)
+    events = emitted_events(caplog)
     assert len(events) == 1
     assert UUID(events[0]["workflow_trace_id"]).version == 4
     assert secret not in json.dumps(events)
