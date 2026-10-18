@@ -24,4 +24,5 @@ USER handoffguard
 
 EXPOSE 10000
 # Cloud entrypoint checks PostgreSQL and secure demo environment at startup.
-CMD ["sh", "-c", "exec uvicorn app.cloud:create_cloud_app --factory --host 0.0.0.0 --port \"${PORT:-10000}\""]
+# Disable raw-path access logs in the cloud; allowlisted workflow JSON events remain.
+CMD ["sh", "-c", "exec uvicorn app.cloud:create_cloud_app --factory --host 0.0.0.0 --port \"${PORT:-10000}\" --no-access-log"]

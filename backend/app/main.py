@@ -10,6 +10,7 @@ from sqlalchemy import create_engine, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from .logic import impact_assessment
+from .observability import observe_business_operation
 from .models import Base, Order, OrderRevision, ProductionReview, Change, ApprovalDecision, CustomerAcceptance
 from .schemas import CreateOrder, ProductionReviewInput, ChangeInput, DecisionInput, CustomerAcceptanceInput
 
@@ -33,6 +34,8 @@ def create_app(database_url: str | None = None) -> FastAPI:
         engine.dispose()
 
     app = FastAPI(title="HandoffGuard AI API", version="0.3.0-gate01", lifespan=lifespan)
+    # Safe JSON events for authenticated business operations; no user payloads.
+    app.middleware("http")(observe_business_operation)
 
     def get_db():
         with session_factory() as session:
