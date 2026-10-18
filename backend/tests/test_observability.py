@@ -3,11 +3,24 @@ import json
 import re
 from uuid import UUID, uuid4
 
+import pytest
+
+from app.observability import logger
+
 
 PREFIX = '{"schema":"handoffguard.observability.v1"'
 
+@pytest.fixture
+def event_capture(caplog):
+    """Attach the pytest handler directly: production logger does not propagate."""
+    logger.addHandler(caplog.handler)
+    try:
+        yield caplog
+    finally:
+        logger.removeHandler(caplog.handler)
 
-def emitted_events(caplog):
+
+def emitted_events(event_capture):
     return [
         json.loads(record.getMessage())
         for record in caplog.records
@@ -16,7 +29,7 @@ def emitted_events(caplog):
     ]
 
 
-def test_synthetic_v1_to_v2_has_correlated_safe_events(client, headers, caplog):
+def test_synthetic_v1_to_v2_has_correlated_safe_events(client, headers, event_capture):
     trace = str(uuid4())
 
     def auth(role):
@@ -83,7 +96,7 @@ def test_synthetic_v1_to_v2_has_correlated_safe_events(client, headers, caplog):
     history = client.get(f"/api/v1/orders/{order_id}/revisions", headers=auth("sales"))
     assert [row["quantity"] for row in history.json()] == [100, 120]
 
-    events = emitted_events(caplog)
+    events = emitted_events(event_capture)
     assert len(events) == 10
     assert {ev["workflow_trace_id"] for ev in events} == {trace}
     assert len({ev["request_id"] for ev in events}) == len(events)
@@ -118,7 +131,7 @@ def test_synthetic_v1_to_v2_has_correlated_safe_events(client, headers, caplog):
         assert private not in raw
 
 
-def test_invalid_trace_and_secret_are_never_logged(client, headers, caplog):
+def test_invalid_trace_and_secret_are_never_logged(client, headers, event_capture):
     secret = "PRIVATE-MALICIOUS-TRACE-DO-NOT-LOG"
     response = client.post("/api/v1/orders",
         headers={**headers["sales"], "X-Workflow-Trace": secret},
@@ -126,7 +139,7 @@ def test_invalid_trace_and_secret_are_never_logged(client, headers, caplog):
               "unit_sales_price_kopeks": 100000, "delivery_date": "2026-11-12",
               "approved_source_id": "synthetic-only"})
     assert response.status_code == 201
-    events = emitted_events(caplog)
+    events = emitted_events(event_capture)
     assert len(events) == 1
     assert UUID(events[0]["workflow_trace_id"]).version == 4
     assert secret not in json.dumps(events)
