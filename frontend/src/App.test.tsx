@@ -5,8 +5,7 @@ import App,{roleToken} from './App';
 describe('workflow UI',()=>{
   it('shows real workflow stages, not fabricated revisions',()=>{
     render(<App/>);
-    // Deployment proof marker is visible only in the candidate cloud build.
-    expect(screen.getByText(/CD-PROOF-02/)).toBeTruthy();
+    expect(screen.getByText('PROJECT 1 · EDUCATIONAL DEMO')).toBeTruthy();
     expect(screen.getByRole('heading',{name:'Первоначальный заказ'})).toBeTruthy();
     expect(screen.getByRole('heading',{name:'Проверка производства'})).toBeTruthy();
     expect(screen.getByRole('heading',{name:'История версий'})).toBeTruthy();

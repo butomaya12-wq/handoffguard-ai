@@ -63,7 +63,7 @@ export default function App(){
   const canDecide=!!change&&change.status==='PENDING_APPROVAL'&&!!assessment;
   const approved=change?.status==='INTERNALLY_APPROVED';
   return <div className="shell">
-    <header className="bar"><div className="logo">HG<span> / HandoffGuard</span></div><div className="meta">PROJECT 1 · EDUCATIONAL DEMO · CD-PROOF-02</div></header>
+    <header className="bar"><div className="logo">HG<span> / HandoffGuard</span></div><div className="meta">PROJECT 1 · EDUCATIONAL DEMO</div></header>
     <div className="wrapper">
       <section className="intro"><div><span className="overline">ORDER CHANGE CONTROL</span><h1>Заказ под контролем.</h1><p>Проверяем изменение до принятия обязательств. Сохраняем V1, согласовываем и создаём V2 только после подтверждения условий.</p></div><div className="version"><small>ТЕКУЩАЯ ВЕРСИЯ</small><strong>{order?'V'+order.revision:'—'}</strong><span>{order?order.quantity+' изделий':'Выбери заказ'}</span></div></section>
       <section className="panel">
