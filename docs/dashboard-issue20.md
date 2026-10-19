@@ -8,7 +8,7 @@ Make the existing manufacturing-order change workflow observable to a permitted 
 
 ## Application layout and one-role session (owner-requested UX revision, PR #27)
 
-The original single scrolling page and three role-token inputs were rejected at owner screenshot review. The draft implementation provides one backend-validated sign-in using `GET /api/v1/me`, which returns **only the validated role**, never the token or actor identity. A role-appropriate left sidebar separates pages; sales and approver enter at the dashboard, production enters at order selection and production review. Sales can create orders/changes, calculate and submit assessments and record customer acceptance; production can record reviews; approver can make decisions and apply only after customer acceptance; all can open permitted order history. All role checks still happen on the server; hiding buttons is not authorization. Dashboard rows can open the corresponding persisted order via the existing authorized API. Token stays in React memory, sign-out clears it.
+The original single scrolling page and three role-token inputs were rejected at owner screenshot review. The draft implementation provides one backend-validated sign-in using `GET /api/v1/me`, which returns **only the validated role**, never the token or actor identity. A role-appropriate left sidebar separates pages; sales and approver enter at the dashboard, production enters directly in its single **«Производство»** page, which contains both the live queue and the production review form. Sales can create orders/changes, calculate and submit assessments and record customer acceptance; production can record reviews; approver can make decisions and apply only after customer acceptance; all can open permitted order history. All role checks still happen on the server; hiding buttons is not authorization. Dashboard rows can open the corresponding persisted order via the existing authorized API. Token stays in React memory, sign-out clears it.
 
 This is **not production SSO** and intentionally cannot be used to impersonate or choose a role without a valid configured token. The hosted reviewer gate still applies before the app login.
 
@@ -34,6 +34,12 @@ At local visual review the owner discovered that changing from sales to producti
 - The manager may consult the same read-only orders list, but **does not self-certify production**. Only the production bearer role records production checks. Workflow approval/financial revisions stay under existing human role safeguards. Existing Neon records must not be mutated to demonstrate this: owner exercises local SQLite.
 - The original schema already has `OrderRevision.created_at` and immutable `ProductionReview` records; this change needs **no new tables, migrations or database data backfill**. The source `Order` itself has no created timestamp; do not label a version timestamp as “order created at”.
 - Verified by isolated local-backend tests (authorization, no writes, pagination and empty cases, review/attention change, revision requiring fresh check), frontend role-specific UI tests, CI, and later owner browser proof.
+
+## Owner feedback: avoid duplicated production queue (2026-10-19)
+
+Owner screenshot shows the exact same production inbox appearing in both **«Заказы»** and **«Производство»** for the production role. This creates two nearly identical screens, confusing workers. The red badge value **2** is not a duplicated row: it represents two distinct local synthetic orders (`FRAME-01` and `DOCKER-TEST-01`) requiring review.
+
+**Simplification:** The production role now gets only **«Производство»** and **«История версий»** in its sidebar. Successful sign-in lands directly on the production page, which contains **one instance** of the queue plus the review form. Clicking a queued order loads its approved current version and enables the review form right below the list. The manager and approver keep their own **«Заказы»** list. This modifies only role-based navigation/rendering, not stored orders, role authorization or work queue query. Existing review-required semantics, 15-second read-only polling and no-UUID handoff remain unchanged.
 
 ## Verified schema, metrics and filters
 
