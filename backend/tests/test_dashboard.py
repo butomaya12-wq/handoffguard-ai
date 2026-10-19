@@ -1,5 +1,6 @@
 """Dashboard contract tests: real SQL, role checks, bounded rows and no writes."""
 import json
+from datetime import date
 
 import pytest
 from fastapi.testclient import TestClient
@@ -35,7 +36,7 @@ def seed_changes(engine, statuses):
     with Session(engine) as session:
         order = Order(
             product_code="SYNTHETIC-ONLY", quantity=100,
-            unit_sales_price_kopeks=100000, delivery_date="2026-11-12",
+            unit_sales_price_kopeks=100000, delivery_date=date(2026, 11, 12),
             approved_source_id="synthetic-source", revision=1,
         )
         session.add(order)
