@@ -21,6 +21,7 @@ describe('business analytics dashboard',()=>{
     await waitFor(()=>expect(mock).toHaveBeenCalledWith('sales-test-token',undefined));
     expect(await screen.findByRole('group',{name:'Распределение заявок по статусам'})).toBeTruthy();
     expect(screen.getByRole('img',{name:'Применены: 1 из 3'})).toBeTruthy();
+    expect(screen.getByRole('img',{name:'Доли статусов по 3 заявкам'})).toBeTruthy();
     expect(screen.getByRole('table',{name:'Таблица заявок на изменения'})).toBeTruthy();
     expect(screen.getByText('3461fe89')).toBeTruthy();
     expect(screen.getByText('V1 → V2')).toBeTruthy();
@@ -47,7 +48,8 @@ describe('business analytics dashboard',()=>{
       by_status:{DRAFT:0,ASSESSMENT_REQUIRED:0,PENDING_APPROVAL:0,INTERNALLY_APPROVED:0,APPLIED:0,REJECTED:0},
     });
     render(<Dashboard token="sales-token"/>);
-    expect(await screen.findByText(/Пока нет заявок на изменение/)).toBeTruthy();
+    expect(await screen.findByRole('img',{name:'Нет заявок для диаграммы'})).toBeTruthy();
+    expect(screen.getByText(/После появления первой заявки/)).toBeTruthy();
     expect(screen.getByText(/Для выбранного статуса заявок нет/)).toBeTruthy();
     expect(screen.queryByRole('table',{name:'Таблица заявок на изменения'})).toBeNull();
   });
