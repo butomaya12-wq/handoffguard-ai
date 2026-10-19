@@ -1,6 +1,6 @@
 # Gate 05 — reviewer demo cloud deployment runbook
 
-**State as of 2026-10-18: CI-tested cloud image, NOT publicly deployed.** This guide does not attest that a hosted service, database or DNS endpoint exists. Task: [Issue #11](https://github.com/butomaya12-wq/handoffguard-ai/issues/11), draft [PR #12](https://github.com/butomaya12-wq/handoffguard-ai/pull/12).
+**Historical planning/runbook snapshot (before first hosted release, 2026-10-18).** The original steps and unverified-at-the-time statements below describe the *predeployment* state; do **not** use them as the present project status. The application was subsequently deployed to [Render Free](https://handoffguard-ai-demo.onrender.com) backed by Neon PostgreSQL, with actual CI-gated deployment/rollback and preserved approvals verified in [Issue #11](https://github.com/butomaya12-wq/handoffguard-ai/issues/11). By **2026-10-19**, [Issue #18](https://github.com/butomaya12-wq/handoffguard-ai/issues/18) and [Issue #22](https://github.com/butomaya12-wq/handoffguard-ai/issues/22) recorded completed alerting tests and owner-received private Render-origin Telegram diagnostic; the temporary test flag was switched off. The current overview is [README](../README.md). **Never copy any secrets into issues, chat, screenshots or GitHub.**
 
 ## Selected educational architecture
 

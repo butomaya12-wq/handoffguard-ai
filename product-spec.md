@@ -1,6 +1,6 @@
 # HandoffGuard AI — Product Specification v0.3
 
-**Status:** Product owner approved one final internal approver after a separate production review on 2026-10-13. Engineering design remains provisional until tested. All data in the MVP is synthetic.
+**Status (2026-10-19):** The human-approved scope (one final internal approver after production review) is **implemented and verified** in the educational FastAPI + React application. Local and CI tests passed; protected Render Free and Neon PostgreSQL are operating with **synthetic data only**. Hosted controls are not production identity or a security certification. [Evidence tracker](https://github.com/butomaya12-wq/handoffguard-ai/issues/6).
 
 ## 1. Problem
 
@@ -39,7 +39,7 @@ A `COMPLETED` production order cannot have a revision applied in MVP.
 1. Create original approved order with source reference and immutable revision 1.
 2. Record human production review (stage, completed units, feasibility, note, reviewer, time).
 3. Register customer source and proposed change without mutating the approved revision.
-4. Extract structured change candidates if AI is enabled; sales manager verifies all proposed terms.
+4. *(Planned extension, NOT part of running MVP):* AI may extract structured change candidates from a source. In the implemented app, sales enters/verifies proposed terms manually.
 5. Assess proposed values using deterministic code, with an immutable assessment fingerprint tied to verified inputs and the production snapshot.
 6. Production feasibility `UNKNOWN` or `NOT_FEASIBLE` prevents approval submission; change remains blocked and original work may continue.
 7. Authorized approver signs off the exact assessment fingerprint or rejects with an audit record.
@@ -58,7 +58,7 @@ A `COMPLETED` production order cannot have a revision applied in MVP.
 
 ## 6. Provenance and audit
 
-Keep source ID, source type, exact excerpt, timestamp and SHA-256; extraction status `PROPOSED` or `HUMAN_VERIFIED`; human actor, decision and reason; approved order revision; and assessment fingerprint. Changing the proposed terms or production snapshot after assessment invalidates its prior sign-off.
+**Implemented now:** Record an original approved source reference, the separate change proposal and reason, authenticated production review, company approval decision and its assessment fingerprint, matching customer acceptance evidence, and revision snapshots. Changing commercial inputs or the production snapshot invalidates prior assessment authority. **Planned, not implemented:** comprehensive source type/excerpt ingestion, source SHA-256 storage and an AI extraction pipeline with `PROPOSED`/`HUMAN_VERIFIED` states. These cannot be claimed as working hosted functionality.
 
 ## 7. Minimum tests / release gates
 
@@ -70,8 +70,10 @@ Keep source ID, source type, exact excerpt, timestamp and SHA-256; extraction st
 
 Golden cases: [fixtures/golden-cases.json](fixtures/golden-cases.json). These are **expected outcomes**, not evidence that tests have passed.
 
-## 8. Delivery / course requirements
+## 8. Implementation, course requirements and delivery
 
-Implement functional frontend, documented OpenAPI-backed backend, persistence, reproducible Docker Compose, integration tests, cloud deployment, CI/CD, agent extension pack, security/audit records, and AI workflow log.
+**Verified implementation (2026-10-19):** full-stack React/FastAPI, persistence (SQLite/Compose locally; Neon PostgreSQL on Render), role-separated human approval workflow, Python/React tests and build, cloud Docker image, five GitHub CI workflows, automatic CI-gated Render deployment and separately tested rollback, allowlisted correlated logs, bounded Telegram 5xx alerting and an owner-received Render-origin diagnostic. Details: [tracker #6](https://github.com/butomaya12-wq/handoffguard-ai/issues/6), [live cloud evidence #11](https://github.com/butomaya12-wq/handoffguard-ai/issues/11), [observability #16](https://github.com/butomaya12-wq/handoffguard-ai/issues/16), [alerting #18](https://github.com/butomaya12-wq/handoffguard-ai/issues/18) and [diagnostic #22](https://github.com/butomaya12-wq/handoffguard-ai/issues/22).
 
-Deadline 27 October 2026 at 04:00 (course-account timezone). Actual scored project will be a specific final commit SHA. Peer reviews are required.
+**Not implemented:** source-document ingestion endpoint (despite its appearance in the [draft OpenAPI contract](openapi.yaml)), live AI extraction, autonomous on-call responder, production-grade security, persistent external metrics, and automated browser E2E. Cloud credentials stay private and the public URL requires a separately authenticated reviewer session. Demo alerts are best-effort and reset on service restarts. The system is **not production-ready**.
+
+**Submission requirements:** reviewer-readable **English documentation**, a verified final commit, links to evidence, submission via the [cohort platform](https://courses.datatalks.club/ai-dev-tools-2026/) and **three mandatory peer reviews**. An earlier planning record gives **27 October 2026 at 04:00 in the course-account timezone**, but this has **not been independently reverified** on the course platform. Confirm the current deadline, form and peer-review instructions there before submitting.

@@ -7,7 +7,7 @@ React 19 + TypeScript + Vite. API methods are centralized in `src/api.ts`. Backe
 2. Start frontend:
 ```sh
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 3. Open http://127.0.0.1:5173 and enter the matching demo role tokens. Vite proxies `/api` to the local FastAPI server; no CORS changes needed.
@@ -22,4 +22,4 @@ npm run build
 - Credentials stay only in page memory; for local Vite development, a user-activated **local demo role mode** sends the fixed synthetic tokens per endpoint without trusting browser password autofill. It is never enabled for public builds. **Not production login:** never enter real tokens or deploy this multi-role demo login publicly.
 - Requests use only synthetic data. No LLM approval, 1C/CRM connection, e-signature or production identity verification.
 - Saved change state (including assessment and matching customer acceptance) is read back from the backend after opening the order. A sessionStorage entry keeps the last demo order ID for this tab only; it does not persist tokens. Multiple saved changes are selectable. No automatic production SSO exists.
-- There is not yet a committed npm lockfile; CI uses `npm install` until the lockfile is generated and committed. Reproducible `npm ci`, Docker and deployment are later gates.
+- A committed `package-lock.json` is present. CI and Docker builds use reproducible `npm ci`; the UI is shipped both in local Docker Compose (Nginx) and the protected Render Free same-origin cloud image. See [root README](../README.md) and [deployment evidence](https://github.com/butomaya12-wq/handoffguard-ai/issues/11).
