@@ -118,14 +118,14 @@ export default function App(){
         <h1>Управление изменениями. Без хаоса.</h1>
         <p>Заказы, согласования и аналитика — в одном рабочем пространстве. Войди под своей ролью, чтобы увидеть доступные разделы.</p>
         <form onSubmit={e=>{e.preventDefault();void signIn();}}>
-          <label>Ключ доступа
+          <label>Ключ доступа для вашей роли
             <input aria-label="Ключ доступа" autoComplete="off" type="password" value={credential}
               onChange={e=>setCredential(e.target.value)} placeholder="Ключ вашей роли" required/>
           </label>
           <button className="button primary full" type="submit" disabled={authBusy}>{authBusy?'Проверяем доступ…':'Войти в рабочее пространство →'}</button>
         </form>
         {authError&&<p role="alert" className="alert error">Не удалось войти: {authError}</p>}
-        <p className="login-note">Учебная система. Доступ подтверждает сервер. Используй только синтетические тестовые учётные данные, не вставляй реальные секреты в переписку.</p>
+        <p className="login-note">Каждый ключ закреплён за одной ролью: менеджер, производство или руководитель. Роль определяет сервер. Чтобы войти под другой ролью, нажми «Сменить пользователя» и введи её тестовый ключ. Не используй реальные секреты.</p>
       </main>
       <small className="login-footer">DATALALKS.CLUB · AI DEV TOOLS 2026 · SYNTHETIC DATA ONLY</small>
     </div>;
@@ -139,20 +139,20 @@ export default function App(){
       <div className="workspace-brand"><strong>HG</strong><span>HandoffGuard <small>AI Workspace</small></span></div>
       <div className="nav-caption">РАБОЧИЕ РАЗДЕЛЫ</div>
       <nav aria-label="Основная навигация" className="workspace-nav">
-        {available.map(item=><button key={item.id} type="button" aria-current={page===item.id?'page':undefined}
+        {available.map((item,index)=><button key={item.id} type="button" aria-current={page===item.id?'page':undefined}
           className={'workspace-nav-item'+(page===item.id?' is-active':'')}
           onClick={()=>{setPage(item.id);setError('');setMessage('');}}>
-          <span className="workspace-nav-num">{item.caption}</span><span>{item.title}</span>
+          <span className="workspace-nav-num">{String(index+1).padStart(2,'0')}</span><span>{item.title}</span>
         </button>)}
       </nav>
       <div className="workspace-sidebottom">
         <div className="workspace-identity"><small>ТЕКУЩАЯ РОЛЬ</small><strong>{ROLE_LABELS[role]}</strong><span>Права проверяет FastAPI</span></div>
-        <button type="button" className="workspace-logout" onClick={signOut}>Выйти из системы ↗</button>
+        <button type="button" className="workspace-logout" onClick={signOut}>Сменить пользователя ↗</button>
       </div>
     </aside>
     <div className="workspace-main">
       <header className="workspace-top">
-        <div><span className="overline">HANDOFFGUARD / {currentPage.caption}</span><h1>{currentPage.title}</h1></div>
+        <div><span className="overline">HANDOFFGUARD / {String(available.indexOf(currentPage)+1).padStart(2,'0')}</span><h1>{currentPage.title}</h1></div>
         <div className="workspace-order-pill" title={order?.id??''}>
           <small>ТЕКУЩИЙ ЗАКАЗ</small>
           <strong>{order?order.product_code+' · V'+order.revision:'Не выбран'}</strong>
