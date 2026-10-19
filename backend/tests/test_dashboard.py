@@ -44,7 +44,7 @@ def seed_changes(engine, statuses):
         session.add(OrderRevision(
             order_id=order.id, revision_number=1, product_code=order.product_code,
             quantity=100, unit_sales_price_kopeks=100000,
-            delivery_date="2026-11-12", approved_source_id="synthetic-source",
+            delivery_date=date(2026, 11, 12), approved_source_id="synthetic-source",
         ))
         for status in statuses:
             session.add(Change(
