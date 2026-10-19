@@ -31,6 +31,13 @@ def create_app(database_url: str | None = None) -> FastAPI:
             ).where(OrderRevision.id.is_(None)).limit(1)).first()
             if missing is not None:
                 raise RuntimeError("Existing orders lack approved V1 snapshots. Back up and migrate the database before starting; never fabricate historical approval records.")
+        # Inert unless explicitly opted in on the gated cloud entrypoint.
+        # No public diagnostic route and no synthetic business failure.
+        if (
+            getattr(app.state, "cloud_mode", False)
+            and os.getenv("HANDOFFGUARD_ALERT_DIAGNOSTIC_ON_START") == "SEND_ON_NEXT_START"
+        ):
+            await app.state.alert_monitor.send_diagnostic()
         yield
         engine.dispose()
 
