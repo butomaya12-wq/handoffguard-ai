@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { api, rubles, toKopeks, type Order, type Revision, type Change, type ChangeWorkflow, type Assessment } from './api';
+import Dashboard from './Dashboard';
 
 const nextMonth=()=>{const d=new Date();d.setDate(d.getDate()+30);return d.toISOString().slice(0,10);};
 type Credentials={sales:string;production:string;approver:string};
@@ -72,6 +73,7 @@ export default function App(){
         {localDemo&&<button type="button" className="button neutral" onClick={()=>setUseLocalDemo(v=>!v)}>{useLocalDemo?'✓ Локальные демо-роли активны · отключить':'Использовать локальные демо-роли'}</button>}
         <p className="footnote">При активном локальном демо-режиме запросы используют заданные тестовые токены, даже если менеджер паролей пытается подставить другое значение в поле. В production необходим персональный защищённый вход. ID учебного заказа сохраняется только в этой вкладке.</p>
       </section>
+      <Dashboard token={selectedToken('sales')||selectedToken('approver')} />
       {error&&<div role="alert" className="alert error">Операция заблокирована: {error}</div>}
       {message&&<div role="status" className="alert success">✓ {message}</div>}
       <div className="layout"><main className="column">
