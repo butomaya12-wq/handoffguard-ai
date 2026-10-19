@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from .logic import impact_assessment
 from .observability import observe_business_operation
 from .alerting import AlertMonitor
+from .dashboard import Status as DashboardStatus, build_dashboard
 from .models import Base, Order, OrderRevision, ProductionReview, Change, ApprovalDecision, CustomerAcceptance
 from .schemas import CreateOrder, ProductionReviewInput, ChangeInput, DecisionInput, CustomerAcceptanceInput
 
@@ -99,6 +100,15 @@ def create_app(database_url: str | None = None) -> FastAPI:
     def latest_review(db: Session, order_id: str):
         return db.scalars(select(ProductionReview).where(ProductionReview.order_id == order_id)
                           .order_by(ProductionReview.recorded_at.desc(), ProductionReview.id.desc())).first()
+
+    @app.get("/api/v1/analytics/changes", operation_id="listChangeAnalytics")
+    def list_change_analytics(
+        db: Annotated[Session, Depends(get_db)],
+        actor: Annotated[dict, Depends(require_role("sales", "approver"))],
+        status: DashboardStatus | None = None,
+    ):
+        """Read-only totals and bounded synthetic-demo rows; no free-text or PII."""
+        return build_dashboard(db, status=status)
 
     @app.post("/api/v1/orders", status_code=201, operation_id="createOrder")
     def create_order(payload: CreateOrder, db: Annotated[Session, Depends(get_db)], actor: Annotated[dict, Depends(require_role("sales"))]):
