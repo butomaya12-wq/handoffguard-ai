@@ -31,6 +31,12 @@ def create_app(database_url: str | None = None) -> FastAPI:
             ).where(OrderRevision.id.is_(None)).limit(1)).first()
             if missing is not None:
                 raise RuntimeError("Existing orders lack approved V1 snapshots. Back up and migrate the database before starting; never fabricate historical approval records.")
+        # Optional five-minute startup-only transport diagnostic, disabled by default.
+        # Never generate synthetic 5xx, touch orders or block app startup for this test.
+        try:
+            app.state.alert_monitor.schedule_startup_test(os.getenv("HANDOFFGUARD_ALERT_TEST_UNTIL_UTC", ""))
+        except Exception:
+            pass  # Best effort; never log arbitrary exceptions that might include secrets.
         yield
         engine.dispose()
 
