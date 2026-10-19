@@ -101,6 +101,11 @@ def create_app(database_url: str | None = None) -> FastAPI:
         return db.scalars(select(ProductionReview).where(ProductionReview.order_id == order_id)
                           .order_by(ProductionReview.recorded_at.desc(), ProductionReview.id.desc())).first()
 
+    @app.get("/api/v1/me", operation_id="getCurrentSession")
+    def get_current_session(actor: Annotated[dict, Depends(current_actor)]):
+        """Return only the validated role, never tokens or actor identifiers."""
+        return {"role": actor["role"]}
+
     @app.get("/api/v1/analytics/changes", operation_id="listChangeAnalytics")
     def list_change_analytics(
         db: Annotated[Session, Depends(get_db)],
