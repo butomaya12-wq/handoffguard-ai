@@ -130,9 +130,11 @@ def test_roles_and_filter_validation(analytics):
 
 def test_unknown_legacy_status_counts_without_exposing_text(analytics):
     client, engine = analytics
-    seed_changes(engine, ["DRAFT", "UNRECOGNIZED"])
+    seed_changes(engine, ["DRAFT", "PRIVATE-CUSTOMER-TEXT"])
     data = client.get(URL, headers=headers("sales")).json()
     assert data["total"] == 2
     assert data["by_status"]["DRAFT"] == 1
     assert data["unknown_count"] == 1
     assert data["filtered_total"] == 2
+    assert "PRIVATE-CUSTOMER-TEXT" not in str(data)
+    assert {row["status"] for row in data["items"]} == {"DRAFT", "UNKNOWN"}
