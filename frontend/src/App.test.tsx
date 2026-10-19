@@ -35,30 +35,30 @@ describe('role-gated navigation and one-token login',()=>{
 
   it('lands sales on dashboard and keeps their allowed workflow in separate screens',async()=>{
     const nav=await login('sales');
-    expect(within(nav).getByRole('button',{name:'Обзор'})).toBeTruthy();
-    expect(within(nav).getByRole('button',{name:'Заказы'})).toBeTruthy();
-    expect(within(nav).getByRole('button',{name:'Изменения'})).toBeTruthy();
-    expect(within(nav).getByRole('button',{name:'История версий'})).toBeTruthy();
-    expect(within(nav).queryByRole('button',{name:'Производство'})).toBeNull();
-    expect(within(nav).queryByRole('button',{name:'Согласования'})).toBeNull();
+    expect(within(nav).getByRole('button',{name:/Обзор/})).toBeTruthy();
+    expect(within(nav).getByRole('button',{name:/Заказы/})).toBeTruthy();
+    expect(within(nav).getByRole('button',{name:/Изменения/})).toBeTruthy();
+    expect(within(nav).getByRole('button',{name:/История версий/})).toBeTruthy();
+    expect(within(nav).queryByRole('button',{name:/Производство/})).toBeNull();
+    expect(within(nav).queryByRole('button',{name:/Согласования/})).toBeNull();
     expect(await screen.findByRole('heading',{name:'Дашборд изменений'})).toBeTruthy();
-    fireEvent.click(within(nav).getByRole('button',{name:'Заказы'}));
+    fireEvent.click(within(nav).getByRole('button',{name:/Заказы/}));
     expect(screen.getByRole('heading',{name:'Создать заказ V1'})).toBeTruthy();
     expect(screen.queryByRole('heading',{name:'Дашборд изменений'})).toBeNull();
-    fireEvent.click(within(nav).getByRole('button',{name:'Изменения'}));
+    fireEvent.click(within(nav).getByRole('button',{name:/Изменения/}));
     expect(screen.getByRole('heading',{name:'Оценка последствий'})).toBeTruthy();
-    fireEvent.click(within(nav).getByRole('button',{name:'История версий'}));
+    fireEvent.click(within(nav).getByRole('button',{name:/История версий/}));
     expect(screen.getByRole('heading',{name:'История версий заказа'})).toBeTruthy();
   });
 
   it('production role gets its own inspection page, never global dashboard or approval',async()=>{
     const nav=await login('production');
-    expect(within(nav).queryByRole('button',{name:'Обзор'})).toBeNull();
-    expect(within(nav).getByRole('button',{name:'Производство'})).toBeTruthy();
-    expect(within(nav).queryByRole('button',{name:'Согласования'})).toBeNull();
-    expect(within(nav).queryByRole('button',{name:'Изменения'})).toBeNull();
+    expect(within(nav).queryByRole('button',{name:/Обзор/})).toBeNull();
+    expect(within(nav).getByRole('button',{name:/Производство/})).toBeTruthy();
+    expect(within(nav).queryByRole('button',{name:/Согласования/})).toBeNull();
+    expect(within(nav).queryByRole('button',{name:/Изменения/})).toBeNull();
     expect(screen.queryByRole('heading',{name:'Дашборд изменений'})).toBeNull();
-    fireEvent.click(within(nav).getByRole('button',{name:'Производство'}));
+    fireEvent.click(within(nav).getByRole('button',{name:/Производство/}));
     expect(screen.getByRole('heading',{name:'Проверка производства'})).toBeTruthy();
     expect((screen.getByRole('button',{name:'Сохранить проверку'}) as HTMLButtonElement).disabled).toBe(true);
   });
@@ -86,15 +86,15 @@ describe('role-gated navigation and one-token login',()=>{
       approved_change_id:null,created_at:'2026-10-13',
     }]);
     const changes=vi.spyOn(api,'listChanges').mockResolvedValue([saved]);
-    fireEvent.click(within(nav).getByRole('button',{name:'Заказы'}));
+    fireEvent.click(within(nav).getByRole('button',{name:/Заказы/}));
     fireEvent.change(screen.getByLabelText('Order ID'),{target:{value:'order-one'}});
     fireEvent.click(screen.getByRole('button',{name:'Открыть заказ →'}));
     await waitFor(()=>expect(changes).toHaveBeenCalledWith('synthetic-role-key','order-one'));
-    fireEvent.click(within(nav).getByRole('button',{name:'Согласования'}));
+    fireEvent.click(within(nav).getByRole('button',{name:/Согласования/}));
     expect((screen.getByRole('button',{name:'Утвердить'}) as HTMLButtonElement).disabled).toBe(false);
     expect((screen.getByRole('button',{name:/Применить V2/}) as HTMLButtonElement).disabled).toBe(true);
-    expect(within(nav).queryByRole('button',{name:'Производство'})).toBeNull();
-    expect(within(nav).queryByRole('button',{name:'Изменения'})).toBeNull();
+    expect(within(nav).queryByRole('button',{name:/Производство/})).toBeNull();
+    expect(within(nav).queryByRole('button',{name:/Изменения/})).toBeNull();
   });
 
   it('logout removes active credentials and selected order from memory',async()=>{
