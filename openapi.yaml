@@ -14,7 +14,37 @@ tags:
   - name: production
   - name: changes
   - name: approval
+  - name: analytics
 paths:
+  /api/v1/analytics/changes:
+    get:
+      tags: [analytics]
+      operationId: listChangeAnalytics
+      summary: Read-only synthetic-demo workflow counts and a bounded filtered change list
+      description: |
+        Requires a bearer token for sales or company approver, and the cloud reviewer gate
+        when hosted. Aggregates all synthetic change records; this demo has no tenant
+        separation or change-created timestamp. Filtering affects the table only.
+        Rows are UUID-ordered, not chronological. No customer text or actor details.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ChangeStatus'
+      responses:
+        '200':
+          description: Unfiltered KPI counts and at most 25 limited details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangeAnalyticsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Invalid'
   /api/v1/orders:
     post:
       tags: [orders]
@@ -486,6 +516,52 @@ components:
               type: integer
             status:
               $ref: '#/components/schemas/ChangeStatus'
+    ChangeAnalyticsRow:
+      type: object
+      required: [id, order_id, status, baseline_revision, current_order_revision, requested_quantity]
+      properties:
+        id:
+          type: string
+        order_id:
+          type: string
+        status:
+          type: string
+        baseline_revision:
+          type: integer
+        current_order_revision:
+          type: integer
+        requested_quantity:
+          type: [integer, 'null']
+    ChangeAnalyticsResponse:
+      type: object
+      required: [total, by_status, unknown_count, filter, filtered_total, limit, items]
+      properties:
+        total:
+          type: integer
+          minimum: 0
+        by_status:
+          type: object
+          description: All six recognized status buckets; unaffected by the detail filter.
+          additionalProperties:
+            type: integer
+        unknown_count:
+          type: integer
+          minimum: 0
+        filter:
+          oneOf:
+            - $ref: '#/components/schemas/ChangeStatus'
+            - type: 'null'
+        filtered_total:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          enum: [25]
+        items:
+          type: array
+          maxItems: 25
+          items:
+            $ref: '#/components/schemas/ChangeAnalyticsRow'
     ChangeWorkflow:
       type: object
       description: Saved read-only proposal state; the server rechecks all conditions before any write.
