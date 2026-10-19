@@ -8,7 +8,7 @@ type Page='overview'|'orders'|'production'|'changes'|'approvals'|'history';
 const ROLE_LABELS:Record<BusinessRole,string>={sales:'Менеджер',production:'Производство',approver:'Руководитель'};
 const PAGES:{id:Page;title:string;caption:string;roles:BusinessRole[]}[]=[
   {id:'overview',title:'Обзор',caption:'01',roles:['sales','approver']},
-  {id:'orders',title:'Заказы',caption:'02',roles:['sales','production','approver']},
+  {id:'orders',title:'Заказы',caption:'02',roles:['sales','approver']},
   {id:'production',title:'Производство',caption:'03',roles:['production']},
   {id:'changes',title:'Изменения',caption:'04',roles:['sales']},
   {id:'approvals',title:'Согласования',caption:'05',roles:['approver']},
@@ -75,7 +75,7 @@ export default function App(){
       setToken(credential.trim());
       setRole(result.role);
       setInboxOffset(0);
-      setPage(result.role==='production'?'orders':'overview');
+      setPage(result.role==='production'?'production':'overview');
       setCredential('');
       setError('');
       setMessage('');
@@ -204,7 +204,7 @@ export default function App(){
 
         {page==='overview'&&role!=='production'&&<Dashboard token={token} onOpenOrder={openFromDashboard}/>}
 
-        {page==='orders'&&<>
+        {page==='orders'&&role!=='production'&&<>
           <OrderInbox data={inbox} role={role} loading={inboxLoading} error={inboxError} busy={busy}
             onRefresh={()=>setInboxEpoch(v=>v+1)} onPage={setInboxOffset} onOpen={openFromInbox}/>
           <section className="panel">
@@ -251,7 +251,7 @@ export default function App(){
           <section className="panel">
           <div className="heading"><span className="overline">02 · PRODUCTION</span><h2>Проверка производства</h2>
             <p>Производство проверяет заказ и фиксирует фактическое состояние. Внести изменение может только уполномоченная роль.</p></div>
-          {!order&&<p className="dash-hint">Сначала открой заказ в разделе «Заказы».</p>}
+          {!order&&<p className="dash-hint">Выбери заказ из очереди выше, затем зафиксируй производственную проверку.</p>}
           <form onSubmit={e=>{e.preventDefault();void run('Проверка производства',async()=>{
             if(!order)return;
             await api.productionReview(token,order.id,{production_status:review.status,
