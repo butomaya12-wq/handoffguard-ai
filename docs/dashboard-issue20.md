@@ -6,6 +6,12 @@
 
 Make the existing manufacturing-order change workflow observable to a permitted human through a compact **read-only** analytics panel alongside the original approval UI.
 
+## Application layout and one-role session (owner-requested UX revision, PR #27)
+
+The original single scrolling page and three role-token inputs were rejected at owner screenshot review. The draft implementation provides one backend-validated sign-in using `GET /api/v1/me`, which returns **only the validated role**, never the token or actor identity. A role-appropriate left sidebar separates pages; sales and approver enter at the dashboard, production enters at order selection and production review. Sales can create orders/changes, calculate and submit assessments and record customer acceptance; production can record reviews; approver can make decisions and apply only after customer acceptance; all can open permitted order history. All role checks still happen on the server; hiding buttons is not authorization. Dashboard rows can open the corresponding persisted order via the existing authorized API. Token stays in React memory, sign-out clears it.
+
+This is **not production SSO** and intentionally cannot be used to impersonate or choose a role without a valid configured token. The hosted reviewer gate still applies before the app login.
+
 ## Verified schema, metrics and filters
 
 The persistent `changes` table supplies `status`, `requested_quantity`, `baseline_revision`, `order_id` and `id`. The `orders` table supplies the currently approved revision. A change **does not have a created_at timestamp**, so any trend/date filter would be fabricated.
