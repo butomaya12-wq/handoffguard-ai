@@ -44,6 +44,9 @@ describe('role-gated navigation and one-token login',()=>{
     vi.spyOn(api,'revisions').mockResolvedValue([]);
     const nav=await login('production',inbox);
     expect(within(nav).getByRole('button',{name:/Производство/})).toBeTruthy();
+    expect(within(nav).queryByRole('button',{name:/Заказы/})).toBeNull();
+    expect(screen.getByRole('heading',{name:'Проверка производства'})).toBeTruthy();
+    expect(screen.getAllByRole('heading',{name:'Очередь производства'})).toHaveLength(1);
     expect(await screen.findByText(/FRAME-01/)).toBeTruthy();
     expect(screen.getByText('Требует проверки')).toBeTruthy();
     expect(screen.getByLabelText('Требуют проверки: 1')).toBeTruthy();
@@ -87,10 +90,11 @@ describe('role-gated navigation and one-token login',()=>{
     const nav=await login('production');
     expect(within(nav).queryByRole('button',{name:/Обзор/})).toBeNull();
     expect(within(nav).getByRole('button',{name:/Производство/})).toBeTruthy();
+    expect(within(nav).queryByRole('button',{name:/Заказы/})).toBeNull();
+    expect(screen.getAllByRole('heading',{name:'Очередь производства'})).toHaveLength(1);
     expect(within(nav).queryByRole('button',{name:/Согласования/})).toBeNull();
     expect(within(nav).queryByRole('button',{name:/Изменения/})).toBeNull();
     expect(screen.queryByRole('heading',{name:'Дашборд изменений'})).toBeNull();
-    fireEvent.click(within(nav).getByRole('button',{name:/Производство/}));
     expect(screen.getByRole('heading',{name:'Проверка производства'})).toBeTruthy();
     expect((screen.getByRole('button',{name:'Сохранить проверку'}) as HTMLButtonElement).disabled).toBe(true);
   });
