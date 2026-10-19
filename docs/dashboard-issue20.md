@@ -23,6 +23,18 @@ After validating the redesigned local Mac UI, the owner confirmed the separate s
 
 The update remains in **draft PR #27 only**, subject to GitHub CI, owner Mac tests, and visual review before any merge/release.
 
+## Production handoff: automatic live order queue (owner-requested correction)
+
+At local visual review the owner discovered that changing from sales to production cleared the selected order and forced the worker to ask the manager for a 36-character UUID. This is unacceptable for a business workflow. **PR #27 now adds an authenticated, read-only order inbox** via `GET /api/v1/orders/inbox?limit=25&offset=0` to all three business roles.
+
+- The inbox lists persisted approved orders directly from the same database. It shows a short product code, quantity, approved revision, deadline and **red “Требует проверки”** status. A worker opens a card with one click; technical UUID lookup remains available only as an optional diagnostics fallback.
+- An order requires attention when **no `ProductionReview` for its current approved `Order.revision`** exists. Merely reading/opening the order cannot clear that indicator. A real production review (including explicit zero-progress / feasibility check) clears it. A subsequently approved new revision reopens attention until reviewed for that revision.
+- Pending orders sort before reviewed orders; within each group the most recent **approved revision record timestamp** sorts first. The endpoint exposes no prices, free-text client requests, source descriptions, actors or private credentials. Offset+limit and total counts prevent older orders from becoming inaccessible.
+- While the authorized app is open it refreshes the inbox **every 15 seconds**. A sidebar red count alerts the production role. This is **polling, not a guaranteed push notification** for workers who close the browser; no Telegram delivery or background assignment for production is claimed.
+- The manager may consult the same read-only orders list, but **does not self-certify production**. Only the production bearer role records production checks. Workflow approval/financial revisions stay under existing human role safeguards. Existing Neon records must not be mutated to demonstrate this: owner exercises local SQLite.
+- The original schema already has `OrderRevision.created_at` and immutable `ProductionReview` records; this change needs **no new tables, migrations or database data backfill**. The source `Order` itself has no created timestamp; do not label a version timestamp as “order created at”.
+- Verified by isolated local-backend tests (authorization, no writes, pagination and empty cases, review/attention change, revision requiring fresh check), frontend role-specific UI tests, CI, and later owner browser proof.
+
 ## Verified schema, metrics and filters
 
 The persistent `changes` table supplies `status`, `requested_quantity`, `baseline_revision`, `order_id` and `id`. The `orders` table supplies the currently approved revision. A change **does not have a created_at timestamp**, so any trend/date filter would be fabricated.
