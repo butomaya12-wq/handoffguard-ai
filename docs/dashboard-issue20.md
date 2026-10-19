@@ -12,6 +12,17 @@ The original single scrolling page and three role-token inputs were rejected at 
 
 This is **not production SSO** and intentionally cannot be used to impersonate or choose a role without a valid configured token. The hosted reviewer gate still applies before the app login.
 
+## Owner acceptance feedback: role clarity and chart visibility (2026-10-19)
+
+After validating the redesigned local Mac UI, the owner confirmed the separate screens and sidebar were clearer but asked (a) how to switch between manager, production and approver, and (b) to show meaningful visual charts, not just KPI numerals.
+
+- A role is derived **only from its server-validated bearer key**, not chosen in a client dropdown. Changing roles requires selecting **«Сменить пользователя»**, clearing the current session, and signing in with a different locally configured role key. On hosted Render the reviewer-cookie perimeter remains a separate preceding gate; this educational key is not production user management or SSO.
+- In the overview, use a **real status-distribution donut**, colored legend and proportional status bars derived from the same SQL aggregated `by_status` data. A ring with label **«Нет данных»** and zero-count bars is expected for the owner's currently empty local SQLite, rather than invented representative counts. Unknown statuses stay sanitized and counted. No dates/time series are shown because `Change` does not store a creation date.
+- The sidebar renumbers the role-visible pages consecutively, while internal API/workflow step numbering remains historically accurate.
+- Check both **empty** and **nonempty** states with synthetic test fixtures and on an owner-controlled local copy; don't seed the shared Neon demo or overwrite V1/V2 just for graphics.
+
+The update remains in **draft PR #27 only**, subject to GitHub CI, owner Mac tests, and visual review before any merge/release.
+
 ## Verified schema, metrics and filters
 
 The persistent `changes` table supplies `status`, `requested_quantity`, `baseline_revision`, `order_id` and `id`. The `orders` table supplies the currently approved revision. A change **does not have a created_at timestamp**, so any trend/date filter would be fabricated.
