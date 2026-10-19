@@ -1,7 +1,7 @@
 import {render,screen,cleanup,fireEvent,waitFor,within} from '@testing-library/react';
 import {describe,it,expect,afterEach,vi} from 'vitest';
 import App from './App';
-import {api,type BusinessRole,type DashboardData} from './api';
+import {api,type BusinessRole,type DashboardData,type OrderInboxData} from './api';
 
 afterEach(()=>{cleanup();vi.restoreAllMocks();sessionStorage.clear();});
 
@@ -11,9 +11,11 @@ const dashboard:DashboardData={
   unknown_count:0,filter:null,filtered_total:0,limit:25,items:[],
 };
 
-async function login(role:BusinessRole){
+const emptyInbox:OrderInboxData={total:0,needs_review:0,limit:25,offset:0,items:[]};
+async function login(role:BusinessRole,inbox:OrderInboxData=emptyInbox){
   const check=vi.spyOn(api,'currentSession').mockResolvedValue({role});
   vi.spyOn(api,'analytics').mockResolvedValue(dashboard);
+  vi.spyOn(api,'orderInbox').mockResolvedValue(inbox);
   render(<App/>);
   expect(screen.queryByRole('navigation',{name:'Основная навигация'})).toBeNull();
   fireEvent.change(screen.getByLabelText('Ключ доступа'),{target:{value:'synthetic-role-key'}});
@@ -23,6 +25,36 @@ async function login(role:BusinessRole){
 }
 
 describe('role-gated navigation and one-token login',()=>{
+  it('production receives queued orders after sign-in and opens a review without UUID copy',async()=>{
+    const inbox:OrderInboxData={
+      total:1,needs_review:1,limit:25,offset:0,
+      items:[{
+        id:'order-synthetic',product_code:'FRAME-01',quantity:100,revision:1,
+        production_status:'NOT_STARTED',completed_quantity:0,
+        delivery_date:'2026-11-18',revision_recorded_at:'2026-10-19T10:00:00Z',
+        needs_review:true,
+      }],
+    };
+    const getOrder=vi.spyOn(api,'getOrder').mockResolvedValue({
+      id:'order-synthetic',product_code:'FRAME-01',quantity:100,
+      unit_sales_price_kopeks:100000,unit_est_cost_kopeks:60000,
+      delivery_date:'2026-11-18',approved_source_id:'synthetic',
+      revision:1,production_status:'NOT_STARTED',completed_quantity:0,
+    });
+    vi.spyOn(api,'revisions').mockResolvedValue([]);
+    const nav=await login('production',inbox);
+    expect(within(nav).getByRole('button',{name:/Производство/})).toBeTruthy();
+    expect(await screen.findByText(/FRAME-01/)).toBeTruthy();
+    expect(screen.getByText('Требует проверки')).toBeTruthy();
+    expect(screen.getByLabelText('Требуют проверки: 1')).toBeTruthy();
+    fireEvent.click(screen.getByRole('button',{name:/Открыть для проверки/}));
+    await waitFor(()=>expect(getOrder).toHaveBeenCalledWith('synthetic-role-key','order-synthetic'));
+    expect(await screen.findByRole('heading',{name:'Проверка производства'})).toBeTruthy();
+    expect((screen.getByRole('button',{name:'Сохранить проверку'}) as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.queryByLabelText('Order ID')).toBeNull();
+  });
+
+
   it('denies invalid credentials before showing any app navigation',async()=>{
     const check=vi.spyOn(api,'currentSession').mockRejectedValue(new Error('401: Invalid token'));
     render(<App/>);
