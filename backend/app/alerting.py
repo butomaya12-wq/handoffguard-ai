@@ -52,6 +52,7 @@ class AlertMonitor:
         self._hits = defaultdict(deque)
         self._last_alert = {}
         self._pending = set()
+        self._startup_test_attempted = False
         # Private Telegram chat IDs are numeric. Reject partial/malformed config.
         self._configured = bool(
             re.fullmatch(r"[0-9]+:[A-Za-z0-9_-]+", bot_token)
@@ -108,6 +109,60 @@ class AlertMonitor:
         except Exception:
             _diagnostic("alert_suppressed", operation, "scheduler_unavailable")
 
+    def schedule_startup_test(self, until_utc: str, *, now: datetime | None = None) -> bool:
+        """Opt-in, short-lived diagnostic. Never simulate or count HTTP failures.
+
+        Runs at most once per process. A separate process restart within the
+        bounded five-minute window can repeat it; the owner removes the flag.
+        """
+        if self._startup_test_attempted or not isinstance(until_utc, str):
+            return False
+        # Reject partial, timezone-ambiguous, excessively long and malformed values.
+        if not re.fullmatch(r"[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z", until_utc):
+            return False
+        try:
+            deadline = datetime.strptime(until_utc, "%Y-%m-%dT%H:%M:%SZ").replace(tzinfo=timezone.utc)
+        except ValueError:
+            return False
+        current = now if now is not None else datetime.now(timezone.utc)
+        if current.tzinfo is None:
+            return False
+        current = current.astimezone(timezone.utc)
+        seconds_remaining = (deadline - current).total_seconds()
+        if not (0 < seconds_remaining <= 300):
+            return False
+
+        self._startup_test_attempted = True
+        operation = "channelDiagnostic"
+        if not self._configured:
+            _diagnostic("alert_test_suppressed", operation, "channel_not_configured")
+            return False
+        try:
+            task = asyncio.create_task(self._deliver_startup_test(current))
+            self._pending.add(task)
+            task.add_done_callback(self._pending.discard)
+        except Exception:
+            # Exception strings can expose Telegram URL secrets; log a fixed code only.
+            _diagnostic("alert_test_suppressed", operation, "scheduler_unavailable")
+            return False
+        return True
+
+    async def _deliver_startup_test(self, timestamp: datetime) -> None:
+        """Uses the live alert's actual HTTPS transport, with a distinct test label."""
+        message = (
+            "HandoffGuard AI | TEST - NOT AN INCIDENT\\n"
+            "Diagnostic: application-to-Telegram delivery\\n"
+            "Environment: demo\\n"
+            f"UTC: {timestamp.isoformat()}\\n"
+            "No HTTP errors were generated; no orders were changed."
+        )
+        try:
+            await asyncio.to_thread(self._post_telegram_text, message)
+        except Exception:
+            _diagnostic("alert_test_failed", "channelDiagnostic")
+        else:
+            _diagnostic("alert_test_sent", "channelDiagnostic")
+
     async def _deliver(self, alert: dict) -> None:
         try:
             await asyncio.to_thread(self._send_telegram, alert)
@@ -127,6 +182,10 @@ class AlertMonitor:
             f"UTC: {alert['timestamp_utc']}\n"
             "Signal only; customer impact is not established."
         )
+        self._post_telegram_text(message)
+
+    def _post_telegram_text(self, message: str) -> None:
+        """Shared production/test Bot API delivery. Never expose transport exceptions."""
         data = urlencode({"chat_id": self._chat_id, "text": message}).encode("utf-8")
         request = Request(
             f"https://api.telegram.org/bot{self._bot_token}/sendMessage",
