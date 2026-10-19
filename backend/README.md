@@ -48,7 +48,13 @@ These environment-token identities are for an educational demo, **not production
 
 Existing Gate 01 SQLite database files may contain orders without V1 snapshots. `Base.metadata.create_all()` does not reconstruct old approval evidence. The app **refuses startup** if an existing order lacks a V1 record. Make a backup and perform a separately reviewed, evidence-backed data migration; do not delete the original database and do not invent approvals. There is **no automated migration/backfill in this PR**. New, empty demo databases start normally.
 
-## Still to implement
+## Current hosted implementation and boundaries (2026-10-19)
 
-Verified client authentication/signature, durable immutable audit events, full source-ingestion API, PostgreSQL high-concurrency integration/migrations, frontend and cloud deployment. OpenAPI is a draft with a planned source endpoint. Tests cover a five-repeat concurrent SQLite scenario, not a production load test or proof against all race schedules. These limitations must not be represented as completed production features.
+The backend is deployed with the React frontend as a **single same-origin Docker service on Render Free**, with a distinct private reviewer session gate and **Neon PostgreSQL** persistence. The local backend/Compose configuration continues to use synthetic role tokens and SQLite. Read-only provider queries confirmed approved V1/V2, approval and customer acceptance survived hosted releases; see [Gate 05 provider verification](https://github.com/butomaya12-wq/handoffguard-ai/issues/11).
+
+[Observability](app/observability.py) records correlated, redacted business operation events and log-derived measurements; [alerting](app/alerting.py) issues bounded best-effort Telegram alerts for repeated business 5xx (see [Issue #18](https://github.com/butomaya12-wq/handoffguard-ai/issues/18)). A safe opt-in diagnostic was received from the actual Render backend, then switched off; see [Issue #22](https://github.com/butomaya12-wq/handoffguard-ai/issues/22).
+
+**Still not implemented / not proven for production:** verified individual customer identity, legal signatures, persistent tamper-evident audit service, full document/source ingestion (the draft OpenAPI source endpoint is planned), PostgreSQL load testing and migrations for arbitrary legacy data, tenant isolation or durable always-on alert counters. The five-repeat SQLite concurrency test is not proof against every race schedule. These omissions do not mean the already verified frontend, Docker Compose or hosted demo are still future work.
+
+**Reader entrypoint:** [root README](../README.md), [product specification](../product-spec.md), [public acceptance tracker](https://github.com/butomaya12-wq/handoffguard-ai/issues/6).
 
