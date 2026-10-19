@@ -15,7 +15,28 @@ tags:
   - name: changes
   - name: approval
   - name: analytics
+  - name: authentication
 paths:
+  /api/v1/me:
+    get:
+      tags: [authentication]
+      operationId: getCurrentSession
+      summary: Return validated role for a single authenticated session
+      description: Never returns token, server-side actor ID, or other credentials.
+      responses:
+        '200':
+          description: Server-validated role
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [role]
+                properties:
+                  role:
+                    type: string
+                    enum: [sales, production, approver]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
   /api/v1/analytics/changes:
     get:
       tags: [analytics]
