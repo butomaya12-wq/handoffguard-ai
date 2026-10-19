@@ -56,6 +56,18 @@ def seed_changes(engine, statuses):
         session.commit()
 
 
+def test_single_login_proves_role_without_exposing_identity(analytics):
+    client, _ = analytics
+    assert client.get("/api/v1/me").status_code == 401
+    assert client.get("/api/v1/me", headers={"Authorization": "Bearer wrong"}).status_code == 401
+    for role in ("sales", "production", "approver"):
+        response = client.get("/api/v1/me", headers=headers(role))
+        assert response.status_code == 200
+        assert response.json() == {"role": role}
+        assert "test-" not in response.text
+        assert "demo" not in response.text
+
+
 def test_empty_database_reports_zero_counts(analytics):
     client, _ = analytics
     response = client.get(URL, headers=headers("sales"))
