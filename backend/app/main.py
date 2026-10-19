@@ -4,7 +4,7 @@ import os
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import create_engine, select, update
 from sqlalchemy.orm import Session, sessionmaker
@@ -13,6 +13,7 @@ from .logic import impact_assessment
 from .observability import observe_business_operation
 from .alerting import AlertMonitor
 from .dashboard import Status as DashboardStatus, build_dashboard
+from .order_inbox import list_order_inbox
 from .models import Base, Order, OrderRevision, ProductionReview, Change, ApprovalDecision, CustomerAcceptance
 from .schemas import CreateOrder, ProductionReviewInput, ChangeInput, DecisionInput, CustomerAcceptanceInput
 
@@ -114,6 +115,16 @@ def create_app(database_url: str | None = None) -> FastAPI:
     ):
         """Read-only totals and bounded synthetic-demo rows; no free-text or PII."""
         return build_dashboard(db, status=status)
+
+    @app.get("/api/v1/orders/inbox", operation_id="listOrderInbox")
+    def get_order_inbox(
+        db: Annotated[Session, Depends(get_db)],
+        actor: Annotated[dict, Depends(current_actor)],
+        limit: Annotated[int, Query(ge=1, le=100)] = 25,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ):
+        """Live queue: current revision requires a recorded production review."""
+        return list_order_inbox(db, limit=limit, offset=offset)
 
     @app.post("/api/v1/orders", status_code=201, operation_id="createOrder")
     def create_order(payload: CreateOrder, db: Annotated[Session, Depends(get_db)], actor: Annotated[dict, Depends(require_role("sales"))]):
