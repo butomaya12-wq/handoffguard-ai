@@ -150,10 +150,10 @@ class AlertMonitor:
     async def _deliver_startup_test(self, timestamp: datetime) -> None:
         """Uses the live alert's actual HTTPS transport, with a distinct test label."""
         message = (
-            "HandoffGuard AI | TEST - NOT AN INCIDENT\\n"
-            "Diagnostic: application-to-Telegram delivery\\n"
-            "Environment: demo\\n"
-            f"UTC: {timestamp.isoformat()}\\n"
+            "HandoffGuard AI | TEST - NOT AN INCIDENT\n"
+            "Diagnostic: application-to-Telegram delivery\n"
+            "Environment: demo\n"
+            f"UTC: {timestamp.isoformat()}\n"
             "No HTTP errors were generated; no orders were changed."
         )
         try:
