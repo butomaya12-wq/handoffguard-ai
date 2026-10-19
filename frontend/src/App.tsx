@@ -1,6 +1,7 @@
-import {useState} from 'react';
+import {useEffect, useState} from 'react';
+import OrderInbox from './OrderInbox';
 import Dashboard from './Dashboard';
-import {api, rubles, toKopeks, type Order, type Revision, type Change, type ChangeWorkflow, type Assessment, type BusinessRole} from './api';
+import {api, rubles, toKopeks, type Order, type Revision, type Change, type ChangeWorkflow, type Assessment, type BusinessRole, type OrderInboxData, type OrderInboxItem} from './api';
 
 const nextMonth=()=>{const d=new Date();d.setDate(d.getDate()+30);return d.toISOString().slice(0,10);};
 type Page='overview'|'orders'|'production'|'changes'|'approvals'|'history';
@@ -37,6 +38,32 @@ export default function App(){
   const [reason,setReason]=useState('Клиент просит увеличить заказ');
   const [evidence,setEvidence]=useState('Клиент подтвердил количество, цену и срок');
   const [decisionNote,setDecisionNote]=useState('Коммерческие условия подтверждены');
+  const [inbox,setInbox]=useState<OrderInboxData|null>(null);
+  const [inboxError,setInboxError]=useState('');
+  const [inboxLoading,setInboxLoading]=useState(false);
+  const [inboxOffset,setInboxOffset]=useState(0);
+  const [inboxEpoch,setInboxEpoch]=useState(0);
+
+  // Read-only polling, no acknowledgement on view. Ignore stale role responses.
+  useEffect(()=>{
+    let active=true;
+    setInbox(null);
+    setInboxError('');
+    if(!token||!role){setInboxLoading(false);return;}
+    async function poll(){
+      if(!active)return;
+      setInboxLoading(true);
+      try{
+        const latest=await api.orderInbox(token,inboxOffset);
+        if(active){setInbox(latest);setInboxError('');}
+      }catch(e){
+        if(active){setInbox(null);setInboxError(e instanceof Error?e.message:'Ошибка загрузки очереди');}
+      }finally{if(active)setInboxLoading(false);}
+    }
+    void poll();
+    const interval=setInterval(()=>{void poll();},15000);
+    return ()=>{active=false;clearInterval(interval);};
+  },[token,role,inboxOffset,inboxEpoch]);
 
   async function signIn(){
     if(!credential.trim()){setAuthError('Введите ключ доступа, выданный для вашей роли.');return;}
@@ -47,6 +74,7 @@ export default function App(){
       if(!['sales','production','approver'].includes(result.role))throw new Error('Сервер вернул неизвестную роль.');
       setToken(credential.trim());
       setRole(result.role);
+      setInboxOffset(0);
       setPage(result.role==='production'?'orders':'overview');
       setCredential('');
       setError('');
@@ -59,6 +87,7 @@ export default function App(){
   function signOut(){
     setToken('');setRole(null);setCredential('');setPage('overview');setAuthError('');
     setOrder(null);setHistory([]);setChange(null);setChanges([]);setAssessment(null);setAccepted(false);
+    setInbox(null);setInboxError('');setInboxOffset(0);
     setError('');setMessage('');setLookup('');
     sessionStorage.removeItem('handoffguard-demo-order-id');
     sessionStorage.removeItem('handoffguard-demo-change-id');
@@ -94,6 +123,9 @@ export default function App(){
       role==='production'?Promise.resolve([] as ChangeWorkflow[]):api.listChanges(token,normalized),
     ]);
     setOrder(current);setHistory(approved);setLookup(current.id);
+    if(role==='production')setReview(s=>({
+      ...s,status:current.production_status,count:String(current.completed_quantity),
+    }));
     sessionStorage.setItem('handoffguard-demo-order-id',current.id);
     selectSavedWorkflow(records);
   }
@@ -103,6 +135,12 @@ export default function App(){
   }
   function openFromDashboard(orderId:string){
     void run('Открытие заказа',async()=>{await load(orderId);setPage('orders');});
+  }
+  function openFromInbox(item:OrderInboxItem){
+    void run('Открытие заказа',async()=>{
+      await load(item.id);
+      setPage(role==='production'?'production':'orders');
+    });
   }
 
   const canAssess=!!change&&(change.status==='DRAFT'||change.status==='ASSESSMENT_REQUIRED');
@@ -143,6 +181,8 @@ export default function App(){
           className={'workspace-nav-item'+(page===item.id?' is-active':'')}
           onClick={()=>{setPage(item.id);setError('');setMessage('');}}>
           <span className="workspace-nav-num">{String(index+1).padStart(2,'0')}</span><span>{item.title}</span>
+          {role==='production'&&item.id==='production'&&!!inbox?.needs_review&&
+            <span className="inbox-nav-count" aria-label={'Требуют проверки: '+inbox.needs_review}>{inbox.needs_review}</span>}
         </button>)}
       </nav>
       <div className="workspace-sidebottom">
@@ -165,14 +205,17 @@ export default function App(){
         {page==='overview'&&role!=='production'&&<Dashboard token={token} onOpenOrder={openFromDashboard}/>}
 
         {page==='orders'&&<>
+          <OrderInbox data={inbox} role={role} loading={inboxLoading} error={inboxError} busy={busy}
+            onRefresh={()=>setInboxEpoch(v=>v+1)} onPage={setInboxOffset} onOpen={openFromInbox}/>
           <section className="panel">
-            <div className="heading"><span className="overline">ORDER WORKSPACE</span><h2>Открыть заказ</h2>
-              <p>Укажи ID существующего учебного заказа. Все дальнейшие действия выполняются в отдельных разделах меню.</p></div>
+            <div className="heading"><span className="overline">ORDER WORKSPACE</span><h2>Выбранный заказ</h2>
+              <p>Выбери заказ в списке выше — информация загрузится автоматически. Технический поиск оставлен как резервный вариант.</p></div>
+            <details className="inbox-advanced"><summary>Поиск по техническому ID (для диагностики)</summary>
             <form className="lookup" onSubmit={e=>{e.preventDefault();void run('Загрузка заказа',()=>load(lookup));}}>
               <label>Идентификатор заказа<input aria-label="Order ID" value={lookup} onChange={e=>setLookup(e.target.value)}
                 placeholder="UUID заказа"/></label>
               <button type="submit" disabled={busy} className="button neutral">Открыть заказ →</button>
-            </form>
+            </form></details>
             {order&&<div className="summary">
               <div><small>АКТИВНЫЙ ЗАКАЗ</small><strong>{order.product_code} · {order.quantity} шт.</strong>
                 <span>V{order.revision} · {rubles(order.unit_sales_price_kopeks)} за шт. · до {order.delivery_date}</span></div><b>Утверждён</b>
@@ -188,6 +231,7 @@ export default function App(){
                 ...(baseline.cost?{unit_est_cost_kopeks:toKopeks(baseline.cost)}:{}),
                 delivery_date:baseline.date,approved_source_id:baseline.source});
               await load(result.id);
+              setInboxOffset(0);setInboxEpoch(v=>v+1);
             });}}>
               <div className="grid two">
                 <label>Код изделия<input required value={baseline.product} onChange={e=>setBaseline(s=>({...s,product:e.target.value}))}/></label>
@@ -201,7 +245,10 @@ export default function App(){
           </section>}
         </>}
 
-        {page==='production'&&role==='production'&&<section className="panel">
+        {page==='production'&&role==='production'&&<>
+          <OrderInbox data={inbox} role={role} loading={inboxLoading} error={inboxError} busy={busy}
+            onRefresh={()=>setInboxEpoch(v=>v+1)} onPage={setInboxOffset} onOpen={openFromInbox}/>
+          <section className="panel">
           <div className="heading"><span className="overline">02 · PRODUCTION</span><h2>Проверка производства</h2>
             <p>Производство проверяет заказ и фиксирует фактическое состояние. Внести изменение может только уполномоченная роль.</p></div>
           {!order&&<p className="dash-hint">Сначала открой заказ в разделе «Заказы».</p>}
@@ -210,6 +257,7 @@ export default function App(){
             await api.productionReview(token,order.id,{production_status:review.status,
               completed_quantity:Number(review.count),feasibility:review.feasibility,note:review.note});
             setAssessment(null);setAccepted(false);await refresh(order.id);
+            setInboxEpoch(v=>v+1);
           });}}>
             <div className="grid two">
               <label>Стадия<select value={review.status} onChange={e=>setReview(s=>({...s,status:e.target.value}))}>
@@ -222,7 +270,8 @@ export default function App(){
               <label>Комментарий<input value={review.note} onChange={e=>setReview(s=>({...s,note:e.target.value}))}/></label>
             </div><button disabled={busy||!order} className="button neutral">Сохранить проверку</button>
           </form>
-        </section>}
+          </section>
+        </>}
 
         {page==='changes'&&role==='sales'&&<>
           <section className="panel">
