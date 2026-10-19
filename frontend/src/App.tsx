@@ -249,7 +249,7 @@ export default function App(){
           <OrderInbox data={inbox} role={role} loading={inboxLoading} error={inboxError} busy={busy}
             onRefresh={()=>setInboxEpoch(v=>v+1)} onPage={setInboxOffset} onOpen={openFromInbox}/>
           <section className="panel">
-          <div className="heading"><span className="overline">02 · PRODUCTION</span><h2>Проверка производства</h2>
+          <div className="heading"><span className="overline">PRODUCTION REVIEW</span><h2>Проверка производства</h2>
             <p>Производство проверяет заказ и фиксирует фактическое состояние. Внести изменение может только уполномоченная роль.</p></div>
           {!order&&<p className="dash-hint">Выбери заказ из очереди выше, затем зафиксируй производственную проверку.</p>}
           <form onSubmit={e=>{e.preventDefault();void run('Проверка производства',async()=>{
