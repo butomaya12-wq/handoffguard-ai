@@ -51,7 +51,7 @@ def build_dashboard(db: Session, *, status: Status | None = None) -> dict:
         {
             "id": record.id,
             "order_id": record.order_id,
-            "status": record.status,
+            "status": record.status if record.status in STATUSES else "UNKNOWN",
             "baseline_revision": record.baseline_revision,
             "current_order_revision": record.current_order_revision,
             "requested_quantity": record.requested_quantity,
