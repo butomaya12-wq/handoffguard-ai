@@ -117,6 +117,30 @@ class AlertMonitor:
         else:
             _diagnostic("alert_sent", alert["operation"])
 
+    async def send_diagnostic(self) -> bool:
+        """Opt-in backend egress proof; never create artificial errors or touch orders.
+
+        Called only on explicitly enabled cloud startup. One attempt per
+        process start, NOT durable exactly-once across Render restarts.
+        """
+        if not self._configured:
+            _diagnostic("diagnostic_suppressed", "diagnostic", "channel_not_configured")
+            return False
+        message = (
+            "HandoffGuard AI | DIAGNOSTIC TEST\n"
+            "Backend-to-Telegram delivery test.\n"
+            "No HTTP 5xx triggered. No orders modified.\n"
+            "Not a real incident."
+        )
+        try:
+            await asyncio.to_thread(self._send_text, message)
+        except Exception:
+            # Transport exceptions may embed the Bot API token URL.
+            _diagnostic("diagnostic_delivery_failed", "diagnostic")
+            return False
+        _diagnostic("diagnostic_sent", "diagnostic")
+        return True
+
     def _send_telegram(self, alert: dict) -> None:
         """HTTPS Bot API request with a short timeout; no token in logs."""
         message = (
@@ -127,6 +151,10 @@ class AlertMonitor:
             f"UTC: {alert['timestamp_utc']}\n"
             "Signal only; customer impact is not established."
         )
+        self._send_text(message)
+
+    def _send_text(self, message: str) -> None:
+        """Shared HTTPS transport for real alerts and the inert diagnostic."""
         data = urlencode({"chat_id": self._chat_id, "text": message}).encode("utf-8")
         request = Request(
             f"https://api.telegram.org/bot{self._bot_token}/sendMessage",

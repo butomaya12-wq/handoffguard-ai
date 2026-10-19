@@ -99,6 +99,8 @@ def create_cloud_app(
     signer = URLSafeTimedSerializer(cookie_secret, salt="handoffguard-reviewer-gate-v1")
     failures = defaultdict(deque)
     app = create_app(raw_url)
+    # Explicitly identify the protected cloud entrypoint for startup-only diagnostic.
+    app.state.cloud_mode = True
 
     @app.middleware("http")
     async def require_demo_access(request: Request, call_next):
