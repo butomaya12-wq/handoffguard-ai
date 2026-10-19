@@ -46,6 +46,8 @@ describe('role-gated navigation and one-token login',()=>{
     expect(within(nav).getByRole('button',{name:/Производство/})).toBeTruthy();
     expect(within(nav).queryByRole('button',{name:/Заказы/})).toBeNull();
     expect(screen.getByRole('heading',{name:'Проверка производства'})).toBeTruthy();
+    expect(screen.getByText('PRODUCTION REVIEW')).toBeTruthy();
+    expect(screen.queryByText('02 · PRODUCTION')).toBeNull();
     expect(screen.getAllByRole('heading',{name:'Очередь производства'})).toHaveLength(1);
     expect(await screen.findByText(/FRAME-01/)).toBeTruthy();
     expect(screen.getByText('Требует проверки')).toBeTruthy();
