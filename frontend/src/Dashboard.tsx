@@ -1,14 +1,31 @@
 import {useEffect, useRef, useState} from 'react';
 import {api, type DashboardData, type DashboardStatus} from './api';
 
-const STATUSES: {key: DashboardStatus; label: string}[] = [
-  {key:'DRAFT',label:'Черновики'},
-  {key:'ASSESSMENT_REQUIRED',label:'Ожидают оценки'},
-  {key:'PENDING_APPROVAL',label:'На согласовании'},
-  {key:'INTERNALLY_APPROVED',label:'Внутренне одобрены'},
-  {key:'APPLIED',label:'Применены'},
-  {key:'REJECTED',label:'Отклонены'},
+const STATUSES: {key: DashboardStatus; label: string; color: string}[] = [
+  {key:'DRAFT',label:'Черновики',color:'#98a8b5'},
+  {key:'ASSESSMENT_REQUIRED',label:'Ожидают оценки',color:'#5f8ca2'},
+  {key:'PENDING_APPROVAL',label:'На согласовании',color:'#e1a44d'},
+  {key:'INTERNALLY_APPROVED',label:'Внутренне одобрены',color:'#61b6a4'},
+  {key:'APPLIED',label:'Применены',color:'#247b5f'},
+  {key:'REJECTED',label:'Отклонены',color:'#c46d70'},
 ];
+function chartSegments(data:DashboardData){
+  const parts=[
+    ...STATUSES.map(item=>({label:item.label,color:item.color,count:data.by_status[item.key]})),
+    {label:'Другие статусы',color:'#5d6472',count:data.unknown_count},
+  ];
+  return parts.filter(part=>part.count>0);
+}
+function donutFill(data:DashboardData){
+  if(data.total===0)return '#e3ebea';
+  let position=0;
+  const stops=chartSegments(data).map(part=>{
+    const start=position;
+    position+=100*part.count/data.total;
+    return `${part.color} ${start}% ${position}%`;
+  });
+  return `conic-gradient(${stops.join(', ')})`;
+}
 const captionFor=(status:string)=>STATUSES.find(item=>item.key===status)?.label??'Неизвестный статус';
 
 export default function Dashboard({token,onOpenOrder}:{token:string;onOpenOrder?:(orderId:string)=>void}){
@@ -76,19 +93,41 @@ export default function Dashboard({token,onOpenOrder}:{token:string;onOpenOrder?
         <div className="dash-kpi"><small>Отклонены</small><strong>{data.by_status.REJECTED.toLocaleString('ru-RU')}</strong></div>
       </div>
       <div className="dash-content">
+        <div className="dash-chart-card" role="group" aria-label="Круговая диаграмма статусов">
+          <h3>Структура заявок</h3>
+          <div className="dash-donut-layout">
+            <div className="dash-donut" role="img"
+              aria-label={data.total===0?'Нет заявок для диаграммы':'Доли статусов по '+data.total+' заявкам'}
+              style={{background:donutFill(data)}}>
+              <div className="dash-donut-center">
+                <strong>{data.total}</strong><span>{data.total===0?'Нет данных':'Всего заявок'}</span>
+              </div>
+            </div>
+            <ul className="dash-legend">
+              {STATUSES.map(item=><li key={item.key}>
+                <span className="dash-legend-dot" style={{background:item.color}}/>
+                <span>{item.label}</span>
+                <strong>{data.by_status[item.key]}</strong>
+              </li>)}
+              {data.unknown_count>0&&<li><span className="dash-legend-dot" style={{background:'#5d6472'}}/>
+                <span>Другие статусы</span><strong>{data.unknown_count}</strong></li>}
+            </ul>
+          </div>
+          {data.total===0&&<p className="dash-empty-note">После появления первой заявки диаграмма покажет реальные доли её статусов.</p>}
+        </div>
         <div className="dash-plot" role="group" aria-label="Распределение заявок по статусам">
-          <h3>Распределение статусов</h3>
-          {data.total===0?<p className="dash-hint">Пока нет заявок на изменение. График появится после создания первой заявки.</p>:
-          STATUSES.map(item=>{
+          <h3>Распределение по статусам</h3>
+          {STATUSES.map(item=>{
             const count=data.by_status[item.key];
             return <div key={item.key} className="dash-bar-row">
               <div className="dash-bar-head"><span>{item.label}</span><b>{count}</b></div>
               <div className="dash-track" aria-label={item.label+': '+count+' из '+data.total} role="img">
-                <span className="dash-fill" style={{width:(100*count/data.total)+'%'}}/>
+                <span className="dash-fill" style={{width:data.total>0?(100*count/data.total)+'%':'0%',background:item.color}}/>
               </div>
             </div>;
           })}
-          {data.unknown_count>0&&<p className="dash-hint">Есть {data.unknown_count} заявок с нераспознанным статусом; они учтены в общем количестве.</p>}
+          {data.total===0&&<p className="dash-empty-note">Пока все показатели равны нулю: в локальной базе ещё нет заявок на изменения.</p>}
+          {data.unknown_count>0&&<p className="dash-hint">Другие статусы: {data.unknown_count}. Эти заявки входят в общее количество.</p>}
         </div>
         <div className="dash-table-wrap">
           <h3>Заявки <small>Показано {data.items.length} из {data.filtered_total}; максимум {data.limit}</small></h3>
