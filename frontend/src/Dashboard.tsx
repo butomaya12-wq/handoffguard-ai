@@ -11,7 +11,7 @@ const STATUSES: {key: DashboardStatus; label: string}[] = [
 ];
 const captionFor=(status:string)=>STATUSES.find(item=>item.key===status)?.label??'Неизвестный статус';
 
-export default function Dashboard({token}:{token:string}){
+export default function Dashboard({token,onOpenOrder}:{token:string;onOpenOrder?:(orderId:string)=>void}){
   const [data,setData]=useState<DashboardData|null>(null);
   const [filter,setFilter]=useState<DashboardStatus|''>('');
   const [loading,setLoading]=useState(false);
@@ -24,14 +24,15 @@ export default function Dashboard({token}:{token:string}){
     setData(null);
     setError('');
     setLoading(false);
+    if(token)void load('',token);
   },[token]);
 
-  async function load(next:DashboardStatus|''=filter){
+  async function load(next:DashboardStatus|''=filter,activeToken=token){
     const id=++requestId.current;
     setLoading(true);
     setError('');
     try{
-      const result=await api.analytics(token,next||undefined);
+      const result=await api.analytics(activeToken,next||undefined);
       if(id===requestId.current)setData(result);
     }catch(e){
       if(id===requestId.current){
@@ -65,7 +66,7 @@ export default function Dashboard({token}:{token:string}){
       </button>
     </div>
     {error&&<p role="alert" className="alert error">Аналитика недоступна: {error}</p>}
-    {!data&&!loading&&!error&&<p className="dash-hint">Введи токен менеджера или руководителя выше и нажми «Обновить аналитику».</p>}
+    {!data&&!loading&&!error&&<p className="dash-hint">Загрузка актуальных статусов из базы...</p>}
     {data&&<>
       <div className="dash-kpis">
         <div className="dash-kpi"><small>Всего заявок</small><strong>{data.total.toLocaleString('ru-RU')}</strong></div>
@@ -93,12 +94,13 @@ export default function Dashboard({token}:{token:string}){
           <h3>Заявки <small>Показано {data.items.length} из {data.filtered_total}; максимум {data.limit}</small></h3>
           {data.items.length===0?<p className="dash-hint">Для выбранного статуса заявок нет.</p>:
           <div className="dash-table-scroll"><table aria-label="Таблица заявок на изменения">
-            <thead><tr><th scope="col">Заказ</th><th scope="col">Статус</th><th scope="col">Количество</th><th scope="col">Версия</th></tr></thead>
+            <thead><tr><th scope="col">Заказ</th><th scope="col">Статус</th><th scope="col">Количество</th><th scope="col">Версия</th><th scope="col">Действие</th></tr></thead>
             <tbody>{data.items.map(item=><tr key={item.id}>
               <td title={item.order_id}><code>{item.order_id.slice(0,8)}</code></td>
               <td>{captionFor(item.status)}</td>
               <td>{item.requested_quantity??'—'}</td>
               <td>V{item.baseline_revision} → V{item.current_order_revision}</td>
+              <td>{onOpenOrder&&<button type="button" className="dash-open" onClick={()=>onOpenOrder(item.order_id)}>Открыть заказ →</button>}</td>
             </tr>)}</tbody>
           </table></div>}
         </div>
