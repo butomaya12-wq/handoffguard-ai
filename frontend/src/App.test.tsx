@@ -97,10 +97,31 @@ describe('role-gated navigation and one-token login',()=>{
     expect(within(nav).queryByRole('button',{name:/Изменения/})).toBeNull();
   });
 
+  it('can switch from manager to approver by validating a different role key',async()=>{
+    const auth=vi.spyOn(api,'currentSession')
+      .mockResolvedValueOnce({role:'sales'})
+      .mockResolvedValueOnce({role:'approver'});
+    vi.spyOn(api,'analytics').mockResolvedValue(dashboard);
+    render(<App/>);
+    fireEvent.change(screen.getByLabelText('Ключ доступа'),{target:{value:'sales-synthetic'}});
+    fireEvent.click(screen.getByRole('button',{name:/Войти в рабочее пространство/}));
+    const nav=await screen.findByRole('navigation',{name:'Основная навигация'});
+    expect(within(nav).getByRole('button',{name:/Изменения/})).toBeTruthy();
+    expect(within(nav).queryByRole('button',{name:/Согласования/})).toBeNull();
+    fireEvent.click(screen.getByRole('button',{name:/Сменить пользователя/}));
+    expect(screen.getByLabelText('Ключ доступа')).toBeTruthy();
+    fireEvent.change(screen.getByLabelText('Ключ доступа'),{target:{value:'approver-synthetic'}});
+    fireEvent.click(screen.getByRole('button',{name:/Войти в рабочее пространство/}));
+    await waitFor(()=>expect(auth).toHaveBeenCalledTimes(2));
+    const approverNav=await screen.findByRole('navigation',{name:'Основная навигация'});
+    expect(within(approverNav).getByRole('button',{name:/Согласования/})).toBeTruthy();
+    expect(within(approverNav).queryByRole('button',{name:/Изменения/})).toBeNull();
+  });
+
   it('logout removes active credentials and selected order from memory',async()=>{
     await login('sales');
     sessionStorage.setItem('handoffguard-demo-order-id','test-order');
-    fireEvent.click(screen.getByRole('button',{name:/Выйти из системы/}));
+    fireEvent.click(screen.getByRole('button',{name:/Сменить пользователя/}));
     expect(screen.getByLabelText('Ключ доступа')).toBeTruthy();
     expect(sessionStorage.getItem('handoffguard-demo-order-id')).toBeNull();
     expect(screen.queryByRole('navigation',{name:'Основная навигация'})).toBeNull();
