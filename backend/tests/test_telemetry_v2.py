@@ -67,12 +67,14 @@ def test_real_opentelemetry_spans_and_cumulative_metrics_no_secret(monkeypatch, 
             assert 'handoffguard_business_operations_total{operation="createOrder",outcome="success",status_class="2xx"} 1.0' in body
             assert 'handoffguard_business_operations_total{operation="createOrder",outcome="blocked",status_class="4xx"} 1.0' in body
             assert "handoffguard_business_operation_duration_seconds_bucket" in body
+            assert 'trace_id="' in body, 'OpenMetrics histogram should expose sparse exemplars'
             assert SYNTHETIC_TOKEN not in body
             assert SYNTHETIC_PAYLOAD["product_code"] not in body
             assert "synthetic-local" not in body
             assert api.app.state.telemetry_v2._provider.force_flush(timeout_millis=2000)
             spans = exporter.get_finished_spans()
             assert len(spans) == 2
+            assert all(f'trace_id="{span.context.trace_id:032x}"' in body for span in spans)
             assert {span.name for span in spans} == {"createOrder"}
             assert {span.attributes["handoffguard.outcome"] for span in spans} == {"success", "blocked"}
             for span in spans:
