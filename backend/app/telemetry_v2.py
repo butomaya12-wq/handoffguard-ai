@@ -30,7 +30,8 @@ class TelemetryV2:
         from opentelemetry.sdk.resources import Resource
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor
-        from prometheus_client import CollectorRegistry, Counter, Histogram, CONTENT_TYPE_LATEST
+        from prometheus_client import CollectorRegistry, Counter, Histogram
+        from prometheus_client.openmetrics.exposition import CONTENT_TYPE_LATEST
 
         self._metrics_media_type = CONTENT_TYPE_LATEST
         self._registry = CollectorRegistry(auto_describe=True)
@@ -74,8 +75,6 @@ class TelemetryV2:
         status_class = f"{status // 100}xx"
         labels = (operation, outcome, status_class)
         self._counter.labels(*labels).inc()
-        self._duration.labels(*labels).observe(event["duration_ms"] / 1000.0)
-
         # Explicit span attributes are allowlisted; no raw request or error text.
         span = self._tracer.start_span(
             operation,
@@ -89,10 +88,15 @@ class TelemetryV2:
         )
         trace_id = f"{span.get_span_context().trace_id:032x}"
         span.end(end_time=ended_ns)
+        # Exemplars associate one sample with its real OTel trace without adding
+        # unbounded trace-ID labels to the Prometheus time series.
+        self._duration.labels(*labels).observe(
+            event["duration_ms"] / 1000.0, exemplar={"trace_id": trace_id}
+        )
         return trace_id
 
     def metrics_text(self) -> bytes:
-        from prometheus_client import generate_latest
+        from prometheus_client.openmetrics.exposition import generate_latest
         return generate_latest(self._registry)
 
     @property
