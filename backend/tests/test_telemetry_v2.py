@@ -78,14 +78,17 @@ def test_real_opentelemetry_spans_and_cumulative_metrics_no_secret(monkeypatch, 
             for span in spans:
                 assert span.end_time > span.start_time
                 assert span.attributes["handoffguard.operation"] == "createOrder"
-                assert span.attributes["handoffguard.workflow_trace"] in {trace}
+                # Missing untrusted trace header gets a fresh server UUID4.
+                assert len(span.attributes["handoffguard.workflow_trace"]) == 36
                 assert len(f"{span.context.trace_id:032x}") == 32
                 assert "product_code" not in str(span.attributes)
             events = [json.loads(row.getMessage()) for row in caplog.records
                 if row.name == "handoffguard.observability"
                 and row.getMessage().startswith('{"schema":"handoffguard.observability.v1"')]
             assert len(events) == 2
-            assert {row["workflow_trace_id"] for row in events} == {trace}
+            assert trace in {row["workflow_trace_id"] for row in events}
+            assert len({row["workflow_trace_id"] for row in events}) == 2
+            assert {row["workflow_trace_id"] for row in events} == {span.attributes["handoffguard.workflow_trace"] for span in spans}
             assert {row["otel_trace_id"] for row in events} == {
                 f"{span.context.trace_id:032x}" for span in spans
             }
