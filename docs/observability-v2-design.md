@@ -1,6 +1,6 @@
 # Observability v2: scoped implementation plan (Issue #29)
 
-**Status: DESIGN PROPOSAL ONLY — instrumentation, collectors, UI and evidence are NOT implemented by this document.**
+**Status: IMPLEMENTED IN DRAFT PR #30 (not released).** A real isolated GitHub Actions lab smoke verified a synthetic V1 creation, Prometheus counter scrape and Jaeger ingestion. Owner Mac/browser review and full V1→V2 telemetry evidence are still pending; 2/2 rubric acceptance is NOT yet claimed.
 **Repository base:** `main` at `3de22dcf98cc544d70ca88148af1388c22706900`.
 **Owner-approved scope:** investigate and build *locally in an isolated draft branch*; no merge, cloud deploy, paid product, Render environment/config change, Neon access, customer data or unguarded remediation.
 
@@ -46,7 +46,21 @@ Before building on-call remediation:
 - If the system only diagnoses or proposes a fix, mark the on-call criterion **INCOMPLETE** rather than fabricate recovery.
 - Review the course submission and mandatory three peer reviews before spending time on the optional 2 points.
 
-## 5. Stop/go and acceptance
+## 5. Implemented lab and CI proof (2026-10-20)
+
+Implemented in this isolated branch:
+- `backend/app/telemetry_v2.py`: real OpenTelemetry SDK request spans with a 32-hex-digit trace ID and Prometheus counter/duration histogram; labels are allowlisted and finite.
+- `backend/app/observability.py`: safe JSON business log retains original fields and adds matching `otel_trace_id` only when local lab enabled; failure of telemetry cannot change the business HTTP response.
+- `backend/app/main.py`: off by default, blocked in cloud mode, metrics exposed only inside the separate lab at `/internal/metrics`.
+- `backend/Dockerfile.observability`, `docker-compose.observability.yml` and `observability/prometheus.yml`: complete isolated lab, own SQLite and named metric/trace volumes, loopback-only UI ports.
+- `.github/workflows/observability-lab-ci.yml`: actual Docker build and synthetic createOrder POST through Nginx, Prometheus HTTP query and Jaeger HTTP query with independent results. This workflow runs in a disposable GitHub runner, not against Render/Neon.
+- `backend/tests/test_telemetry_v2.py`: disabled-mode, export-denial, actual in-memory spans, counters, redaction and fail-open behavior.
+
+**Independent CI evidence:** [Observability lab run #39483989704](https://github.com/butomaya12-wq/handoffguard-ai/actions/runs/39483989704) reported PASS for a real synthetic order, a scraped Prometheus time series, and an ingested Jaeger span. [Backend run #39483989345](https://github.com/butomaya12-wq/handoffguard-ai/actions/runs/39483989345) reported 46 passed, one existing dependency warning. Remaining four original workflows were also successful on that head. This **is not proof of a complete on-call remediation or full end-to-end UI demonstration**.
+
+Next: Mac reviewer local checkout, run documented `docker compose -f docker-compose.observability.yml ...`, inspect 3 UIs, complete synthetic 100→120 workflow, record screenshots and restart/retention proof. Then owner approval before any merge or Render changes.
+
+## 6. Stop/go and acceptance
 
 The locally confirmed baseline is 52 backend + 17 frontend tests on the separate UI branch PR #27; **these are not test results for this design branch**. Never present them as such. Define short staged checks before claiming a new PASS. If the local stack adds unacceptable download, memory or demo-access friction, halt and preserve rubric #10 partial evidence rather than jeopardize submission.
 
