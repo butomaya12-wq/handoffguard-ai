@@ -1,0 +1,84 @@
+# Isolated opt-in observability lab. Runs alongside, never over, the default Compose.
+# No cloud keys, Neon URLs, Render changes or host Docker socket permissions.
+name: handoffguard-observability-lab
+
+services:
+  backend:
+    build:
+      context: .
+      dockerfile: backend/Dockerfile.observability
+    environment:
+      HANDOFFGUARD_DATABASE_URL: sqlite:////data/handoffguard.db
+      HANDOFFGUARD_AUTH_TOKENS: ${HANDOFFGUARD_AUTH_TOKENS:?Configure synthetic local roles in an ignored .env}
+      HANDOFFGUARD_OBSERVABILITY_V2_ENABLED: "1"
+      HANDOFFGUARD_OTLP_TRACES_ENDPOINT: http://jaeger:4318/v1/traces
+    volumes:
+      - lab_orders:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/health', timeout=2)"]
+      interval: 10s
+      timeout: 3s
+      retries: 6
+      start_period: 20s
+    depends_on:
+      jaeger:
+        condition: service_started
+
+  frontend:
+    build:
+      context: .
+      dockerfile: frontend/Dockerfile
+    ports:
+      - "127.0.0.1:8082:80"
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  prometheus:
+    image: prom/prometheus:v3.15.0
+    command:
+      - --config.file=/etc/prometheus/prometheus.yml
+      - --storage.tsdb.path=/prometheus
+      - --storage.tsdb.retention.time=24h
+      - --enable-feature=exemplar-storage
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - ./observability/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - lab_metrics:/prometheus
+    depends_on:
+      backend:
+        condition: service_healthy
+
+  jaeger-volume-init:
+    image: jaegertracing/all-in-one:1.76.0
+    user: "0:0"
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - "mkdir -p /badger/data /badger/key && chown -R 10001:10001 /badger"
+    volumes:
+      - lab_traces:/badger
+    restart: "no"
+
+  jaeger:
+    image: jaegertracing/all-in-one:1.76.0
+    environment:
+      COLLECTOR_OTLP_ENABLED: "true"
+      SPAN_STORAGE_TYPE: badger
+      BADGER_EPHEMERAL: "false"
+      BADGER_DIRECTORY_VALUE: /badger/data
+      BADGER_DIRECTORY_KEY: /badger/key
+    command:
+      - --badger.span-store-ttl=24h0m0s
+    ports:
+      - "127.0.0.1:16686:16686"
+    volumes:
+      - lab_traces:/badger
+    depends_on:
+      jaeger-volume-init:
+        condition: service_completed_successfully
+
+volumes:
+  lab_orders:
+  lab_traces:
+  lab_metrics:

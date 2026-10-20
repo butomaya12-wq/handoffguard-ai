@@ -7,7 +7,7 @@ import json
 import logging
 import sys
 from datetime import datetime, timezone
-from time import perf_counter
+from time import perf_counter, time_ns
 from uuid import UUID, uuid4
 
 from fastapi import Request
@@ -56,6 +56,7 @@ def _result(status: int) -> str:
 async def observe_business_operation(request: Request, call_next):
     """One event per tracked HTTP operation, including denied or failed calls."""
     start = perf_counter()
+    started_ns = time_ns()
     workflow_trace_id = _safe_trace(request.headers.get(TRACE_HEADER))
     request_id = str(uuid4())
     status = 500
@@ -82,6 +83,18 @@ async def observe_business_operation(request: Request, call_next):
                 "metric_name": "business_operation_total",
                 "metric_value": 1,
             }
+            # OTel spans and cumulative Prometheus metrics are local opt-in.
+            # Instrumentation failures cannot modify business HTTP responses.
+            lab = getattr(request.app.state, "telemetry_v2", None)
+            if lab is not None:
+                try:
+                    trace_id = lab.record(
+                        event, started_ns=started_ns, ended_ns=time_ns()
+                    )
+                    event["otel_trace_id"] = trace_id
+                except Exception:
+                    # Do not reveal exporter exception details or credentials.
+                    logger.warning('{"schema":"handoffguard.observability.v2","event":"telemetry_export_suppressed","environment":"local"}')
             logger.info(json.dumps(event, ensure_ascii=False, separators=(",", ":")))
             # Alert dispatch is best-effort and MUST NOT change business HTTP responses.
             # Never log an exception here: it could contain transport credentials.

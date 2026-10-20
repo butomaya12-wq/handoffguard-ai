@@ -15,6 +15,8 @@ dependencies = [
 postgres = ["psycopg[binary]>=3.2,<4"]
 # The public educational demo adds a signed, HttpOnly access-cookie perimeter.
 cloud = ["psycopg[binary]>=3.2,<4", "itsdangerous>=2.2,<3"]
+# Local-only opt-in telemetry stack; not installed in the default cloud build.
+observability = ["opentelemetry-sdk>=1.35,<2", "opentelemetry-exporter-otlp-proto-http>=1.35,<2", "prometheus-client>=0.21,<1"]
 
 [dependency-groups]
 dev = ["httpx>=0.27,<1", "pytest>=8,<10"]

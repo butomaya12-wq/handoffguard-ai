@@ -4,13 +4,14 @@ import os
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import create_engine, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from .logic import impact_assessment
 from .observability import observe_business_operation
+from .telemetry_v2 import TelemetryV2
 from .alerting import AlertMonitor
 from .models import Base, Order, OrderRevision, ProductionReview, Change, ApprovalDecision, CustomerAcceptance
 from .schemas import CreateOrder, ProductionReviewInput, ChangeInput, DecisionInput, CustomerAcceptanceInput
@@ -38,12 +39,19 @@ def create_app(database_url: str | None = None) -> FastAPI:
             and os.getenv("HANDOFFGUARD_ALERT_DIAGNOSTIC_ON_START") == "SEND_ON_NEXT_START"
         ):
             await app.state.alert_monitor.send_diagnostic()
-        yield
-        engine.dispose()
+        telemetry = TelemetryV2.from_environment(cloud_mode=getattr(app.state, "cloud_mode", False))
+        app.state.telemetry_v2 = telemetry
+        try:
+            yield
+        finally:
+            if telemetry is not None:
+                telemetry.shutdown()
+            engine.dispose()
 
     app = FastAPI(title="HandoffGuard AI API", version="0.3.0-gate01", lifespan=lifespan)
     # Per-app, best-effort threshold state. Never a durable production pager.
     app.state.alert_monitor = AlertMonitor.from_environment()
+    app.state.telemetry_v2 = None
     # Safe JSON events for authenticated business operations; no user payloads.
     app.middleware("http")(observe_business_operation)
 
@@ -365,6 +373,17 @@ def create_app(database_url: str | None = None) -> FastAPI:
         db.commit()
         return {"order_id": order.id, "change_id": change.id, "approved_revision": next_revision,
                 "approved_source_id": acceptance.id}
+
+    @app.get("/internal/metrics", include_in_schema=False)
+    def local_observability_metrics():
+        """Disabled by default and forbidden on the cloud entrypoint."""
+        lab = app.state.telemetry_v2
+        if lab is None:
+            raise HTTPException(status_code=404, detail="Not found")
+        return Response(
+            content=lab.metrics_text(), media_type=lab.metrics_media_type,
+            headers={"Cache-Control": "no-store"},
+        )
 
     @app.get("/health", include_in_schema=False)
     def health():
