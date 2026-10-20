@@ -89,6 +89,30 @@ jobs:
               if attempt == 29: raise AssertionError("Jaeger did not ingest an actual OTel createOrder span")
               time.sleep(2)
           print("PASS: Jaeger stored a real OpenTelemetry business span")
+
+          now = time.time()
+          exemplar_url = "http://127.0.0.1:9090/api/v1/query_exemplars?" + urlencode({
+              "query": "handoffguard_business_operation_duration_seconds_bucket",
+              "start": str(now - 180),
+              "end": str(now + 30),
+          })
+          def exemplar_verified():
+              with urlopen(exemplar_url, timeout=5) as response:
+                  data = json.load(response)
+              assert data["status"] == "success", data
+              return any(
+                  len(exemplar.get("labels", {}).get("trace_id", "")) == 32
+                  for series in data.get("data", [])
+                  for exemplar in series.get("exemplars", [])
+              )
+          for attempt in range(20):
+              try:
+                  if exemplar_verified(): break
+              except URLError:
+                  pass
+              if attempt == 19: raise AssertionError("No persisted Prometheus trace exemplar")
+              time.sleep(2)
+          print("PASS: Prometheus exemplar links a metric sample to a 32-digit OTel trace ID")
           PY
 
       - name: Debug lab logs on failure
