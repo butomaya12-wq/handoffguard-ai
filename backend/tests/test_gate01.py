@@ -168,3 +168,23 @@ def test_api_exposes_bearer_auth_scheme(client):
     spec = client.get("/openapi.json").json()
     assert any(v.get("scheme") == "bearer" for v in spec["components"]["securitySchemes"].values())
     assert "/api/v1/changes/{change_id}/decision" in spec["paths"]
+
+
+def test_bearer_auth_challenges_for_missing_invalid_and_wrong_scheme(client, headers):
+    """HTTP 401 challenges clients without reflecting secrets or revealing role mappings."""
+    for auth in (None, "Bearer unknown-SYNTHETIC-SECRET", "Basic not-a-bearer-token"):
+        request_headers = {} if auth is None else {"Authorization": auth}
+        for path in ("/api/v1/me", "/api/v1/orders/inbox"):
+            response = client.get(path, headers=request_headers)
+            assert response.status_code == 401
+            assert response.headers.get("WWW-Authenticate") == "Bearer"
+            expected = "Invalid token" if auth and auth.startswith("Bearer ") else "Bearer token required"
+            assert response.json() == {"detail": expected}
+            assert "unknown-SYNTHETIC-SECRET" not in response.text
+            assert "not-a-bearer-token" not in response.text
+
+    # Authenticated-but-forbidden is a different condition, not a login challenge.
+    forbidden = client.get("/api/v1/analytics/changes", headers=headers["production"])
+    assert forbidden.status_code == 403
+    assert forbidden.json() == {"detail": "Insufficient role"}
+    assert "WWW-Authenticate" not in forbidden.headers

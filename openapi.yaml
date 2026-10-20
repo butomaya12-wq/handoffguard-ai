@@ -14,7 +14,99 @@ tags:
   - name: production
   - name: changes
   - name: approval
+  - name: analytics
+  - name: authentication
 paths:
+  /api/v1/me:
+    get:
+      tags: [authentication]
+      operationId: getCurrentSession
+      summary: Return validated role for a single authenticated session
+      description: Never returns token, server-side actor ID, or other credentials.
+      responses:
+        '200':
+          description: Server-validated role
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [role]
+                properties:
+                  role:
+                    type: string
+                    enum: [sales, production, approver]
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+  /api/v1/analytics/changes:
+    get:
+      tags: [analytics]
+      operationId: listChangeAnalytics
+      summary: Read-only synthetic-demo workflow counts and a bounded filtered change list
+      description: |
+        Requires a bearer token for sales or company approver, and the cloud reviewer gate
+        when hosted. Aggregates all synthetic change records; this demo has no tenant
+        separation or change-created timestamp. Filtering affects the table only.
+        Rows are UUID-ordered, not chronological. No customer text or actor details.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: '#/components/schemas/ChangeStatus'
+      responses:
+        '200':
+          description: Unfiltered KPI counts and at most 25 limited details
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ChangeAnalyticsResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '403':
+          $ref: '#/components/responses/Forbidden'
+        '422':
+          $ref: '#/components/responses/Invalid'
+  /api/v1/orders/inbox:
+    get:
+      tags: [orders, production]
+      operationId: listOrderInbox
+      summary: Read-only live work queue for the currently approved order revisions
+      description: |
+        Available to all authenticated business roles. Returns summary fields only,
+        with orders lacking a ProductionReview for their current approved revision
+        first, newest revision records first; timestamps refer to approved revision
+        records, not order creation or incident detection. A read or opening a row
+        never acknowledges a review. Client polling reads this endpoint every 15s
+        while signed in; it is not a background push notification or work assignment.
+        No customer notes, actor IDs, commercial prices or secrets are included.
+        Offset pagination prevents older orders from disappearing.
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 25
+        - name: offset
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+      responses:
+        '200':
+          description: Paginated summaries and overall pending-production-review count
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OrderInboxResponse'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/Invalid'
   /api/v1/orders:
     post:
       tags: [orders]
@@ -385,6 +477,50 @@ components:
             completed_quantity:
               type: integer
               minimum: 0
+    OrderInboxItem:
+      type: object
+      required: [id, product_code, quantity, revision, production_status, completed_quantity, delivery_date, revision_recorded_at, needs_review]
+      properties:
+        id:
+          type: string
+        product_code:
+          type: string
+        quantity:
+          type: integer
+        revision:
+          type: integer
+        production_status:
+          $ref: '#/components/schemas/ProductionStatus'
+        completed_quantity:
+          type: integer
+        delivery_date:
+          type: string
+          format: date
+        revision_recorded_at:
+          type: string
+          format: date-time
+        needs_review:
+          type: boolean
+    OrderInboxResponse:
+      type: object
+      required: [total, needs_review, limit, offset, items]
+      properties:
+        total:
+          type: integer
+          minimum: 0
+        needs_review:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          minimum: 1
+        offset:
+          type: integer
+          minimum: 0
+        items:
+          type: array
+          items:
+            $ref: '#/components/schemas/OrderInboxItem'
     OrderRevision:
       type: object
       description: Snapshot of a formally approved order revision, never an unapproved proposal.
@@ -486,6 +622,52 @@ components:
               type: integer
             status:
               $ref: '#/components/schemas/ChangeStatus'
+    ChangeAnalyticsRow:
+      type: object
+      required: [id, order_id, status, baseline_revision, current_order_revision, requested_quantity]
+      properties:
+        id:
+          type: string
+        order_id:
+          type: string
+        status:
+          type: string
+        baseline_revision:
+          type: integer
+        current_order_revision:
+          type: integer
+        requested_quantity:
+          type: [integer, 'null']
+    ChangeAnalyticsResponse:
+      type: object
+      required: [total, by_status, unknown_count, filter, filtered_total, limit, items]
+      properties:
+        total:
+          type: integer
+          minimum: 0
+        by_status:
+          type: object
+          description: All six recognized status buckets; unaffected by the detail filter.
+          additionalProperties:
+            type: integer
+        unknown_count:
+          type: integer
+          minimum: 0
+        filter:
+          oneOf:
+            - $ref: '#/components/schemas/ChangeStatus'
+            - type: 'null'
+        filtered_total:
+          type: integer
+          minimum: 0
+        limit:
+          type: integer
+          enum: [25]
+        items:
+          type: array
+          maxItems: 25
+          items:
+            $ref: '#/components/schemas/ChangeAnalyticsRow'
     ChangeWorkflow:
       type: object
       description: Saved read-only proposal state; the server rechecks all conditions before any write.
