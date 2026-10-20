@@ -26,7 +26,7 @@ It is a **separate Compose project** named `handoffguard-observability-lab`, not
 
 Use **new, clearly labeled synthetic orders only**. Example: role sales creates V1=100, production checks, sales proposes V2=120, assesses/submits, approver approves, sales records **synthetic** customer acceptance, approver applies. Check browser and Render are not being mixed up: the lab's test UI uses **8082**, while the normal local app uses **8080**, and hosted HTTPS is a separate deployment.
 
-The metric series only have **three bounded labels:** `operation`, `outcome`, and `status_class`. No raw product, order, customer, token, URL, ID or trace identifiers are series labels. Query e.g.:
+The metric series only have **three bounded labels:** `operation`, `outcome`, and `status_class`. A duration-histogram **OpenMetrics exemplar** carries the actual 32-character Jaeger `trace_id` for a sampled observation (not a time-series label); Prometheus is explicitly configured with `--enable-feature=exemplar-storage`. Match the exemplar to the safe JSON log `otel_trace_id` and Jaeger trace ID. The 24-hour series retention and bounded in-memory exemplar buffer are not permanent storage. No raw product, order, customer, token, URL, ID or trace identifiers are series labels. Query e.g.:
 
 ```promql
 sum by (operation, outcome) (handoffguard_business_operations_total)
