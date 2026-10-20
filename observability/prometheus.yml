@@ -1,0 +1,11 @@
+# Scrape only the internal synthetic-lab backend. No public targets.
+global:
+  scrape_interval: 5s
+  evaluation_interval: 15s
+scrape_configs:
+  - job_name: handoffguard_local_business
+    metrics_path: /internal/metrics
+    static_configs:
+      - targets: ['backend:8000']
+        labels:
+          environment: local_synthetic
