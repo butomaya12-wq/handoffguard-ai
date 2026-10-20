@@ -57,7 +57,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
 
     def current_actor(credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]) -> dict:
         if credentials is None or credentials.scheme.lower() != "bearer":
-            raise HTTPException(status_code=401, detail="Bearer token required")
+            raise HTTPException(status_code=401, detail="Bearer token required", headers={"WWW-Authenticate": "Bearer"})
         # Tokens mapped to trusted identities/roles on the SERVER. No role in request body.
         try:
             configured = json.loads(os.getenv("HANDOFFGUARD_AUTH_TOKENS", "{}"))
@@ -65,7 +65,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
             raise HTTPException(status_code=503, detail="Authentication server misconfigured")
         record = configured.get(credentials.credentials)
         if not isinstance(record, dict) or record.get("role") not in {"sales", "production", "approver"} or not record.get("id"):
-            raise HTTPException(status_code=401, detail="Invalid token")
+            raise HTTPException(status_code=401, detail="Invalid token", headers={"WWW-Authenticate": "Bearer"})
         return record
 
     def require_role(*allowed: str):
