@@ -40,6 +40,7 @@ services:
       - --config.file=/etc/prometheus/prometheus.yml
       - --storage.tsdb.path=/prometheus
       - --storage.tsdb.retention.time=24h
+      - --enable-feature=exemplar-storage
     ports:
       - "127.0.0.1:9090:9090"
     volumes:
