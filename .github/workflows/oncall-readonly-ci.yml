@@ -1,0 +1,17 @@
+name: On-call prototype — read-only signal verification
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  readonly-detector:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Validate deterministic incident detector
+        run: python3 -m unittest discover -s oncall/tests -v
+      - name: Verify read-only CLI help
+        run: python3 -m oncall.detector --help
