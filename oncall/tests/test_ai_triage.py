@@ -89,7 +89,7 @@ class SanitizationTests(unittest.TestCase):
         self.assertEqual(ai_triage.extract_advice(api_result(advice)), advice)
 
     def test_invalid_explanation_does_not_disclose_model_text(self):
-        for explanation in ("", "  ", "unsafe\\x00hidden"):
+        for explanation in ("", "  ", "unsafe" + chr(0) + "hidden"):
             with self.subTest(explanation=explanation):
                 with self.assertRaisesRegex(TriageUnavailable, "^invalid_model_explanation$"):
                     ai_triage.validate_advice(dict(VALID, explanation_ru=explanation))
