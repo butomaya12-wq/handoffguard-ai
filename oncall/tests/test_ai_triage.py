@@ -73,10 +73,26 @@ class SanitizationTests(unittest.TestCase):
             ai_triage.validate_advice(illegal)
 
     def test_output_schema_rejects_extra_and_oversized(self):
-        with self.assertRaises(TriageUnavailable):
+        with self.assertRaisesRegex(TriageUnavailable, "invalid_model_output"):
             ai_triage.validate_advice(dict(VALID, executable_shell="docker"))
-        with self.assertRaises(TriageUnavailable):
-            ai_triage.validate_advice(dict(VALID, explanation_ru="x" * 241))
+        with self.assertRaisesRegex(TriageUnavailable, "model_explanation_too_long"):
+            ai_triage.validate_advice(dict(
+                VALID, explanation_ru="x" * (ai_triage.MAX_EXPLANATION_CHARS + 1)
+            ))
+
+    def test_long_valid_russian_explanation_is_accepted(self):
+        # Regression: real API output may exceed the former arbitrary 240-character cap.
+        explanation = "Prometheus не получил метрики. " * 13
+        self.assertGreater(len(explanation), 240)
+        self.assertLess(len(explanation), ai_triage.MAX_EXPLANATION_CHARS)
+        advice = dict(VALID, explanation_ru=explanation)
+        self.assertEqual(ai_triage.extract_advice(api_result(advice)), advice)
+
+    def test_invalid_explanation_does_not_disclose_model_text(self):
+        for explanation in ("", "  ", "unsafe\\x00hidden"):
+            with self.subTest(explanation=explanation):
+                with self.assertRaisesRegex(TriageUnavailable, "^invalid_model_explanation$"):
+                    ai_triage.validate_advice(dict(VALID, explanation_ru=explanation))
 
     def test_refusal_and_incomplete_response_fail_closed(self):
         with self.assertRaises(TriageUnavailable):
