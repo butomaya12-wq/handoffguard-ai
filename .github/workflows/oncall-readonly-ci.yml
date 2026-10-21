@@ -1,4 +1,4 @@
-name: On-call prototype — read-only signal verification
+name: On-call prototype — safety and recovery tests
 on:
   pull_request:
 
@@ -6,12 +6,14 @@ permissions:
   contents: read
 
 jobs:
-  readonly-detector:
+  safety-and-recovery:
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
       - uses: actions/checkout@v4
-      - name: Validate deterministic incident detector
+      - name: Run deterministic incident and recovery safety tests (no real Docker start)
         run: python3 -m unittest discover -s oncall/tests -v
-      - name: Verify read-only CLI help
-        run: python3 -m oncall.detector --help
+      - name: Verify read-only detector and approval-gated CLI help
+        run: |
+          python3 -m oncall.detector --help
+          python3 -m oncall.recovery --help
