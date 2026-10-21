@@ -13,6 +13,9 @@ from urllib.request import Request, urlopen
 
 API_ENDPOINT = "https://api.openai.com/v1/responses"
 MODEL = "gpt-5.4-mini"
+# A Russian explanation can legitimately exceed 240 characters. Keep a generous
+# bounded local limit; never forward unbounded model output to diagnostics.
+MAX_EXPLANATION_CHARS = 1000
 ALLOWED_EVENT = "backend_unavailable"
 ALLOWED_EVIDENCE = "two_distinct_prometheus_scrapes_up_zero"
 
@@ -39,7 +42,8 @@ SYSTEM_INSTRUCTIONS = (
     "Never assume that Prometheus alone proves a container is stopped. "
     "Distinguish observed lack of scrape availability from suspected causes. "
     "No access to Docker, tools, customer records, terminal commands or cloud systems. "
-    "Only suggest human-gated checks or actions. Explain briefly in Russian. "
+    "Only suggest human-gated checks or actions. Explain in Russian in 1-3 short sentences "
+    "and keep explanation_ru under 400 characters. "
     "Never claim you fixed anything. Output JSON matching the supplied schema."
 )
 
@@ -87,12 +91,12 @@ def validate_advice(value: object) -> dict:
         if value[name] not in RESULT_SCHEMA["properties"][name]["enum"]:
             raise TriageUnavailable("invalid_model_output")
     explanation = value.get("explanation_ru")
-    if (
-        not isinstance(explanation, str)
-        or not 1 <= len(explanation) <= 240
-        or any(ord(char) < 32 and char not in "\n\t" for char in explanation)
-    ):
-        raise TriageUnavailable("invalid_model_output")
+    if not isinstance(explanation, str) or not explanation.strip():
+        raise TriageUnavailable("invalid_model_explanation")
+    if len(explanation) > MAX_EXPLANATION_CHARS:
+        raise TriageUnavailable("model_explanation_too_long")
+    if any(ord(char) < 32 and char not in "\n\t" for char in explanation):
+        raise TriageUnavailable("invalid_model_explanation")
     # No model-proposed action is executable: it is display-only advice.
     return dict(value)
 
