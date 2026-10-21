@@ -47,3 +47,30 @@ A model may be used to classify/describe a *sanitized structured alert* and sugg
 **STOP pending owner approval:** temporarily stop the existing 8082 backend; perform any recovery action that changes running containers; connect Telegram, an AI API, Hermes VPS or any live service; merge to main or deploy. In particular, do not disrupt the ongoing Mac UAT order history without the owner's informed approval.
 
 **Not a production pager:** this lab's Prometheus and Jaeger store roughly 24 hours of telemetry and do not provide continuous externally hosted monitoring. A host-side watcher works only while the owner's Mac and watcher remain running.
+
+## Stage 2 implementation (2026-10-21; still unproved on owner Mac)
+
+`oncall/recovery.py` is a **human-operated recovery runner**, NOT an autonomous AI agent. It does not include an LLM or run automatically upon an incident. No recovery has yet been performed by this program in the owner's local lab.
+
+### Read-only preflight (safe while healthy)
+
+```bash
+python3 -m oncall.recovery
+```
+
+This verifies the exact local Docker Unix socket, fixed Docker Compose project/service identity and one backend container; it prints a sanitized status without changing services. Never copy credentials or raw Docker environment variables into chat.
+
+### Recovery test (requires NEW owner consent to temporarily stop 8082)
+
+Only after a separate explicit authorization to interrupt the local synthetic backend, reproduce a confirmed `down` condition using the prior tested `docker compose -f docker-compose.observability.yml stop backend`. The runner then requires **both**:
+1. Fresh `up=0` observations with two distinct Prometheus scrape timestamps and a stopped *exact* backend container.
+2. The operator executes `python3 -m oncall.recovery --apply` and types the exact phrase `START LOCAL BACKEND` at the interactive prompt. No silent default approval. Revalidate the stopped container and the two down scrapes immediately before the single fixed start command.
+
+The only mutating command in the runner is a fixed, local-only `docker compose -p handoffguard-observability-lab -f <repository-local-file> start backend`. Remote Docker contexts, env overrides and unexpected container/project metadata are rejected; the command is never assembled from model text or user-input strings. A successful result requires **both** Docker healthy and two distinct Prometheus `up=1` scrapes. Missing evidence produces `recovery_unverified` rather than falsely claiming success. Manually recheck V1/V2 preservation via the existing synthetic order's History screen.
+
+### Scope and next gates
+
+- The owner has previously manually demonstrated `stop backend → backend_unavailable → manual start backend → up → V1/V2 preserved`; that **does not** prove the newly added runner works end-to-end.
+- Safety tests simulate subprocess outcomes; those tests do **not** exercise live Docker start.
+- Separate actual Mac UAT with explicit consent is required before representing the runner as proven.
+- The runner is deterministic and human-approved. To legitimately claim an **AI agent**, a bounded agent must actually receive the alert, interpret sanitized evidence with a model, and use a restricted tool under owner approval. No freeform command execution or cloud access.
