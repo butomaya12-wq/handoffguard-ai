@@ -18,28 +18,29 @@ One applied change in the persistent dataset, shown consistently in the KPI card
 
 ![HandoffGuard AI manager dashboard: one applied change, live status breakdown and sidebar navigation](docs/images/handoffguard-manager-dashboard.png)
 
-### 02 · Order inbox and immutable revision history
+### 02 · Order inbox — current approved order
 
-| Order inbox · current approved V2 | Revision history · approved V1 and V2 |
-| --- | --- |
-| [![HandoffGuard AI order inbox: FRAME-01 V2 and pending production review](docs/images/handoffguard-order-inbox.png)](docs/images/handoffguard-order-inbox.png) | [![HandoffGuard AI revision history: preserved V1 100 units and V2 120 units](docs/images/handoffguard-version-history.png)](docs/images/handoffguard-version-history.png) |
+`FRAME-01 · V2`: 120 units, due 2026-11-17. The **Requires production review** badge flags the current revision for a new production check; it does not mean the approved change failed. The order can be opened directly from the list, with no UUID lookup.
 
-**Inbox:** `FRAME-01 · V2`, 120 units, due 2026-11-17. **Requires production review** reflects the current approved revision, not a failed or silently completed action. The list opens the order without sharing a UUID.
+[![HandoffGuard AI order inbox: FRAME-01 V2 and pending production review](docs/images/handoffguard-order-inbox.png)](docs/images/handoffguard-order-inbox.png)
 
-**History:** approved V1 = 100 units and approved V2 = 120 units, both 1,000 RUB per unit, due 2026-11-17. Applying V2 did not rewrite V1.
+### 03 · Immutable approved revision history
+
+**V1 = 100 units** and **V2 = 120 units**, both at 1,000 RUB per unit, due 2026-11-17. The authorized V2 update preserves the original approved V1 for auditability.
+
+[![HandoffGuard AI revision history: approved V1 100 units preserved alongside V2 120 units](docs/images/handoffguard-version-history.png)](docs/images/handoffguard-version-history.png)
 
 ## Workflow at a glance
 
+**Approved V1 → Sales proposal → Production review → Impact assessment → Internal approval → Customer acceptance → Approved V2.**
+
 ```mermaid
 flowchart TD
-  A["Approved baseline V1"] --> B["Sales proposes a change"]
-  B --> C["Production reviews feasibility"]
-  C --> D["Deterministic impact assessment"]
-  D --> E{"Assessment ready and current?"}
-  E -->|No| F["Do not apply the change; preserve V1"]
-  E -->|Yes| G["Authorized internal approval"]
-  G --> H["Matching customer acceptance"]
-  H --> I["Authorized apply creates V2; V1 retained"]
+  A["Approved order · V1"] --> B["Sales proposal + production feasibility"]
+  B --> C["Deterministic impact assessment"]
+  C --> D{"Assessment current, internal approval and customer acceptance match?"}
+  D -->|No| E["Keep original V1 unchanged"]
+  D -->|Yes| F["Authorized apply creates V2 and retains V1"]
 ```
 
 **Human approval is mandatory.** The AI model does not approve commercial terms, alter order quantities or halt production. Business role permissions and stale-assessment checks are enforced by the FastAPI backend.
