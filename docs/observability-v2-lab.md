@@ -64,7 +64,7 @@ Do **not** use `down -v` unless you intentionally want to destroy **only** the l
 - The OTLP exporter runs asynchronously with bounded queue and timeout; the optional stack may drop telemetry if unavailable, but must not fail business operations.
 - Reviewer access to local UIs requires the reviewer to run the lab on their own machine; the hosted Render app has no Jaeger/Prometheus UIs. This is a limitation for the course grader that must be clearly documented.
 - Jaeger v1 all-in-one 1.76 is chosen specifically for documented single-node Badger storage; it is **not** the latest cloud-recommended Jaeger architecture. Future evolution could use Jaeger v2 + a separately configured storage/collector.
-- Criterion 12 **On-call Agent remains NOT IMPLEMENTED**, tracked independently in [Issue #28](../issues/28). A diagnostic notification is not an agent fix.
+- Criterion 12 **has a separate, proven one-shot local agent recovery experiment** under [Issue #28](../issues/28) and [Draft PR #32](https://github.com/butomaya12-wq/handoffguard-ai/pull/32): after two Prometheus down scrapes, a real OpenAI analysis and separate session preauthorization permitted one fixed lab backend start and independent health verification. This is **not** part of hosted Render or an unattended responder. See [owner UAT](oncall-autorecover-owner-uat-2026-10-22.md). A diagnostic notification alone is not an agent fix.
 
 ## Evidence checklist
 
