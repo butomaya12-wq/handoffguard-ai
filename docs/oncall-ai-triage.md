@@ -1,6 +1,6 @@
 # On-call Gate 08 — optional AI triage (educational local synthetic lab)
 
-**Status:** development draft in PR #32, based on integrated PR #31. NO cloud deployment, autonomous recovery, 24/7 scheduler or proof of criterion #12. The owner's previously verified outage recovery was through the **deterministic human-approved** `oncall.recovery`, NOT an LLM.
+**Status:** development draft in PR #32, based on integrated PR #31. NO cloud deployment or 24/7 scheduler. Owner Mac already proved real local Prometheus outage -> one OpenAI diagnosis -> separately operator-approved deterministic recovery -> immutable V1/V2 preserved. The new `--auto-recover` mode is an **unverified optional one-shot session-preauthorized** recovery design, not a production remediation service. Criterion #12 is not accepted yet.
 
 ## Architecture
 
@@ -12,10 +12,17 @@ Prometheus 127.0.0.1:9090 -> oncall.detector.DownDetector
                          └── --live + typed approval: OpenAI Responses API
                                       -> JSON schema advice
                                       -> strict enum/length validation
-                                      -> DISPLAY ONLY (no repair action)
+                                      -> default: DISPLAY ONLY
+                                      └── optional --auto-recover + separate
+                                          preauthorization at startup
+                                          -> strict policy, fixed backend only
+                                          -> verify Docker exited + two fresh up=0
+                                          -> exact compose start backend
+                                          -> Docker healthy + two fresh up=1
+                                          -> exit after first incident
 ```
 
-No Docker commands, shells, SQL, customer data, full traces/logs, Render, Neon, CI secrets or arbitrary URLs ever reach the AI module. Only fixed synthetic `environment`, `service`, `signal`, and `human_approval_required` are sent, with `store:false` and a fixed model `gpt-5.4-mini`. The model has **no tool access**, and output is never used as executable code. A failure, refusal, expired/ambiguous signal or invalid advice fails closed; do not automatically call `oncall.recovery`.
+No Docker commands, shells, SQL, customer data, full traces/logs, Render, Neon, CI secrets or arbitrary URLs ever reach the AI module. Only fixed synthetic `environment`, `service`, `signal`, and `human_approval_required` are sent, with `store:false` and a fixed model `gpt-5.4-mini`. The model has **no tool access**, and output is never used as executable code. A failure, refusal, expired/ambiguous signal or invalid advice fails closed. Default mode never calls `oncall.recovery`. In explicit `--auto-recover` mode, the model's allowlisted `recommended_action=request_human_approved_local_backend_start` is only a **necessary condition**, not sufficient authorization: Docker context, fixed Compose service, actually exited state and multiple fresh Prometheus scrapes are checked by independent deterministic code.
 
 ## Owner Mac: safe local / no-cost verification
 
@@ -38,10 +45,31 @@ python3 -m oncall.agent
 
 The owner must separately approve any deliberate local outage of the lab on port 8082; do not use `--watch --live` to generate synthetic outage data by writing customer orders. Do not connect the hosted Render/Neon deployments. Do not assume an existing Hermes VPS can access local Prometheus or Docker; any Hermes integration would require a fresh security design.
 
+
+## Experimental single-incident preauthorized recovery — NOT YET owner-UAT-verified
+
+New optional mode, *only from the project root, only on owner's Mac*:
+
+```bash
+python3 -m oncall.agent --watch --live --auto-recover
+```
+
+This command **does not run without explicit two-part interactive preauthorization** at startup:
+
+1. `SEND ONE SYNTHETIC ALERT TO OPENAI`: permit at most one billable OpenAI diagnosis when a real local Prometheus `up=0` incident is detected.
+2. `AUTHORIZE ONE LOCAL BACKEND START`: preauthorize the ONE fixed local lab backend startup later in this process, provided strict independent safety checks pass.
+
+If the private `OPENAI_API_KEY` is absent or the isolated local Compose `backend` is not initially `running/healthy`, the program refuses before requesting consent or making any paid call. The agent watches until one confirmed incident, and exits after that one incident (success, veto, or failure). It is **not** a 24/7 daemon and does not watch multiple services.
+
+If AI advice is malformed, calls for manual investigation or does not recommend a human-approved backend start, **do nothing**. Even if AI recommends recovery, independently check the local Unix Docker context, exact Compose project/filename/service/container; require the container to be `exited` and two distinct fresh `up=0` scrapes. Check state again immediately before the fixed `docker compose start backend`. Afterwards require Docker healthy and two distinct fresh `up=1` scrapes. Return `backend_recovered` with `authorization=explicit_session_preapproval` only if ALL post-checks pass. The AI never constructs Docker commands, and volume deletion/recreation is never attempted.
+
+**Limitations:** No unattended multi-incident schedule, no cloud access, no production incident eligibility. Operator can stop at any time via Ctrl+C. If the model fails or the policy vetoes recovery, backend remains stopped and must be recovered manually after inspection. This is session-level preauthorization, not user approval prompted at the moment of outage. Owner must separately approve any deliberate test outage and extra paid API call before live owner UAT.
+
 ## Proof required for actual agent / rubric #12
 
-- Verify a real model response against a real sanitized local synthetic outage.
-- Demonstrate bounded alert → actual model triage → separate operator approval → one exact local backend start → independent health verification and unchanged V1/V2.
+- **Done (owner Mac):** real model response against a detected sanitized local synthetic outage (two real distinct Prometheus `up=0` scrapes).
+- **Done (owner Mac):** bounded alert → actual model triage → separate operator approval → one exact local backend start → independent health verification and unchanged V1/V2 in UI.
+- **Pending:** user-approved UAT of the NEW two-consent-at-launch, one-shot preauthorized autonomous pathway `--auto-recover` under a deliberately induced isolated outage, with independent post-check and preserved V1/V2.
 - Add explicit evidence timestamps, no arbitrary Docker shell or customer edits, no secret-bearing output. A manually chained prototype does **not** count as an automatically awakened agent. Add a narrowly-scoped coordinator later if feasible.
 - Keep PR #32 draft, do not merge into main or deploy without owner permission.
 
