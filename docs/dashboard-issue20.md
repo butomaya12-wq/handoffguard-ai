@@ -1,0 +1,78 @@
+# Business analytics dashboard — Issue #20
+
+**State:** isolated feature PR candidate only. Not deployed to Render, not merged into main, and no production/Neon writes have been made by implementing this feature. Human merge and release authorization are required.
+
+## User value
+
+Make the existing manufacturing-order change workflow observable to a permitted human through a compact **read-only** analytics panel alongside the original approval UI.
+
+## Application layout and one-role session (owner-requested UX revision, PR #27)
+
+The original single scrolling page and three role-token inputs were rejected at owner screenshot review. The draft implementation provides one backend-validated sign-in using `GET /api/v1/me`, which returns **only the validated role**, never the token or actor identity. A role-appropriate left sidebar separates pages; sales and approver enter at the dashboard, production enters directly in its single **«Производство»** page, which contains both the live queue and the production review form. Sales can create orders/changes, calculate and submit assessments and record customer acceptance; production can record reviews; approver can make decisions and apply only after customer acceptance; all can open permitted order history. All role checks still happen on the server; hiding buttons is not authorization. Dashboard rows can open the corresponding persisted order via the existing authorized API. Token stays in React memory, sign-out clears it.
+
+This is **not production SSO** and intentionally cannot be used to impersonate or choose a role without a valid configured token. The hosted reviewer gate still applies before the app login.
+
+## Owner acceptance feedback: role clarity and chart visibility (2026-10-19)
+
+After validating the redesigned local Mac UI, the owner confirmed the separate screens and sidebar were clearer but asked (a) how to switch between manager, production and approver, and (b) to show meaningful visual charts, not just KPI numerals.
+
+- A role is derived **only from its server-validated bearer key**, not chosen in a client dropdown. Changing roles requires selecting **«Сменить пользователя»**, clearing the current session, and signing in with a different locally configured role key. On hosted Render the reviewer-cookie perimeter remains a separate preceding gate; this educational key is not production user management or SSO.
+- In the overview, use a **real status-distribution donut**, colored legend and proportional status bars derived from the same SQL aggregated `by_status` data. A ring with label **«Нет данных»** and zero-count bars is expected for the owner's currently empty local SQLite, rather than invented representative counts. Unknown statuses stay sanitized and counted. No dates/time series are shown because `Change` does not store a creation date.
+- The sidebar renumbers the role-visible pages consecutively, while internal API/workflow step numbering remains historically accurate.
+- Check both **empty** and **nonempty** states with synthetic test fixtures and on an owner-controlled local copy; don't seed the shared Neon demo or overwrite V1/V2 just for graphics.
+
+The update remains in **draft PR #27 only**, subject to GitHub CI, owner Mac tests, and visual review before any merge/release.
+
+## Production handoff: automatic live order queue (owner-requested correction)
+
+At local visual review the owner discovered that changing from sales to production cleared the selected order and forced the worker to ask the manager for a 36-character UUID. This is unacceptable for a business workflow. **PR #27 now adds an authenticated, read-only order inbox** via `GET /api/v1/orders/inbox?limit=25&offset=0` to all three business roles.
+
+- The inbox lists persisted approved orders directly from the same database. It shows a short product code, quantity, approved revision, deadline and **red “Требует проверки”** status. A worker opens a card with one click; technical UUID lookup remains available only as an optional diagnostics fallback.
+- An order requires attention when **no `ProductionReview` for its current approved `Order.revision`** exists. Merely reading/opening the order cannot clear that indicator. A real production review (including explicit zero-progress / feasibility check) clears it. A subsequently approved new revision reopens attention until reviewed for that revision.
+- Pending orders sort before reviewed orders; within each group the most recent **approved revision record timestamp** sorts first. The endpoint exposes no prices, free-text client requests, source descriptions, actors or private credentials. Offset+limit and total counts prevent older orders from becoming inaccessible.
+- While the authorized app is open it refreshes the inbox **every 15 seconds**. A sidebar red count alerts the production role. This is **polling, not a guaranteed push notification** for workers who close the browser; no Telegram delivery or background assignment for production is claimed.
+- The manager may consult the same read-only orders list, but **does not self-certify production**. Only the production bearer role records production checks. Workflow approval/financial revisions stay under existing human role safeguards. Existing Neon records must not be mutated to demonstrate this: owner exercises local SQLite.
+- The original schema already has `OrderRevision.created_at` and immutable `ProductionReview` records; this change needs **no new tables, migrations or database data backfill**. The source `Order` itself has no created timestamp; do not label a version timestamp as “order created at”.
+- Verified by isolated local-backend tests (authorization, no writes, pagination and empty cases, review/attention change, revision requiring fresh check), frontend role-specific UI tests, CI, and later owner browser proof.
+
+## Owner feedback: avoid duplicated production queue (2026-10-19)
+
+Owner screenshot shows the exact same production inbox appearing in both **«Заказы»** and **«Производство»** for the production role. This creates two nearly identical screens, confusing workers. The red badge value **2** is not a duplicated row: it represents two distinct local synthetic orders (`FRAME-01` and `DOCKER-TEST-01`) requiring review.
+
+**Simplification:** The production role now gets only **«Производство»** and **«История версий»** in its sidebar. Successful sign-in lands directly on the production page, which contains **one instance** of the queue plus the review form. Clicking a queued order loads its approved current version and enables the review form right below the list. The manager and approver keep their own **«Заказы»** list. This modifies only role-based navigation/rendering, not stored orders, role authorization or work queue query. Existing review-required semantics, 15-second read-only polling and no-UUID handoff remain unchanged.
+
+## Verified schema, metrics and filters
+
+The persistent `changes` table supplies `status`, `requested_quantity`, `baseline_revision`, `order_id` and `id`. The `orders` table supplies the currently approved revision. A change **does not have a created_at timestamp**, so any trend/date filter would be fabricated.
+
+All KPI values are aggregate counts of persisted `Change` rows:
+- **Total requests:** all rows (including any unrecognized historical statuses).
+- **Pending internal approval:** status `PENDING_APPROVAL`.
+- **Internally approved, not yet applied:** status `INTERNALLY_APPROVED`.
+- **Applied:** status `APPLIED`.
+- **Rejected:** status `REJECTED`.
+- Additional chart buckets: `DRAFT`, `ASSESSMENT_REQUIRED`. Any unknown statuses counted separately as `unknown_count` and included in total.
+
+These are **workflow counts**, not unique orders, financial return, monthly volume or actual customer impact.
+
+`GET /api/v1/analytics/changes?status=<one-of-six-known-statuses>` returns unfiltered overall counts and only the selected status in the table. The table is capped at **25 rows** ordered by `Change.id` for deterministic reproducibility (UUID order is **not** chronological order). Response fields per item: synthetic change/order IDs, status, requested quantity, baseline revision and current approved order revision. This is not a paging or export API.
+
+## Security and trust
+
+- The endpoint requires valid server-side bearer credentials with role **sales or approver**. Role **production** gets HTTP 403, absent/invalid bearer HTTP 401, unsupported filter HTTP 422.
+- On hosted Render, the pre-existing signed reviewer session gate continues to block API requests before bearer authorization.
+- The endpoint never returns `Change.reason`, assessment text, customer acceptance or production notes, free-text source fields, actor/reviewer IDs, unit prices, tokens, raw request URLs or exception traces. The SQL only reads data; it neither commits nor changes the core workflow.
+- This is **one shared synthetic-demo dataset**. There is **no tenant-scoped authorization**, production SSO, privacy/security guarantee, or permission to deploy with real customer records.
+- Empty dataset, forbidden roles, fake/stale credentials and network errors display honest states rather than fake chart data. Switching tokens clears rendered analytics.
+
+## Verification contract
+
+- Backend tests run against disposable local SQLite and assert group-by counts, explicit role denials, filter validation, 25-row cap, absence of sensitive text and unchanged persisted row counts/statuses before and after requests. Existing isolated PostgreSQL CI validates common app behavior, but is **not a separately claimed hosted-dashboard proof**.
+- Frontend Vitest: actual mocked API results in KPI/chart/table, server-side filters, empty data, 403 and token change, plus existing workflow UI regression tests.
+- Full `bash scripts/test-all.sh`, all GitHub PR workflows and manual UI review are required **before** merge. Owner must separately authorize merge and any consequent automatic Render release.
+- Following approved release: verify API/UI via owner-supplied cloud role credentials without revealing secrets, then read-only Neon check of prior V1=100/V2=120, valid approval/acceptance and applied change. Document actual results.
+- No source ingestion, new library, extra paid service, data migration or business-process automation is introduced.
+
+## On-call agent: separate follow-up
+
+Optional rubric #12 cannot be scored from Telegram alerts or a static LLM explanation. A real agent must wake from an event and perform a **demonstrably successful, safe repair**. Given these invariants, agent actions on orders, production reviews, approvals, or PostgreSQL history are prohibited. Treat an **isolated, nonbusiness fault** with reversible, allowlisted remediation as an independent design/test exercise under a separate Issue/PR and fresh human authorization. Do not silently introduce VPS, Hermes or broad Render API credentials in this dashboard slice.

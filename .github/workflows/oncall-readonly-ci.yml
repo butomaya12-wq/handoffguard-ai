@@ -1,0 +1,21 @@
+name: On-call prototype — safety and AI triage tests
+on:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  safety-and-ai-triage:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+      - name: Verify deterministic detection, bounded recovery and mocked AI adapter
+        run: python3 -m unittest discover -s oncall/tests -v
+      - name: Validate offline on-call example and CLI entrypoints
+        run: |
+          python3 -m oncall.detector --help
+          python3 -m oncall.recovery --help
+          python3 -m oncall.agent --help
+          python3 -m oncall.agent --demo

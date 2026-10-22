@@ -5,6 +5,29 @@ export type CreateOrder = {product_code:string; quantity:number; unit_sales_pric
 export type Change = {id:string;order_id:string;baseline_revision:number;reason:string;requested_quantity:number|null;status:string};
 export type ChangeWorkflow = Change & {assessment:Assessment|null;customer_accepted:boolean};
 export type Assessment = {readiness:string;fingerprint:string;delta_revenue_kopeks:number;issues:string[];proposed_quantity:number;proposed_delivery_date:string};
+export type BusinessRole = 'sales' | 'production' | 'approver';
+export type OrderInboxItem = {
+  id:string; product_code:string; quantity:number; revision:number;
+  production_status:string; completed_quantity:number; delivery_date:string;
+  revision_recorded_at:string; needs_review:boolean;
+};
+export type OrderInboxData = {
+  total:number; needs_review:number; limit:number; offset:number;
+  items:OrderInboxItem[];
+};
+
+export type DashboardStatus =
+  'DRAFT' | 'ASSESSMENT_REQUIRED' | 'PENDING_APPROVAL' |
+  'INTERNALLY_APPROVED' | 'APPLIED' | 'REJECTED';
+export type DashboardRow = {
+  id:string; order_id:string; status:string; baseline_revision:number;
+  current_order_revision:number; requested_quantity:number|null;
+};
+export type DashboardData = {
+  total:number; by_status:Record<DashboardStatus,number>;
+  unknown_count:number; filter:DashboardStatus|null; filtered_total:number;
+  limit:number; items:DashboardRow[];
+};
 
 // Non-secret, random per-tab correlation ID. Never represents identity/authorization.
 const TRACE_STORAGE_KEY='handoffguard-workflow-trace';
@@ -29,6 +52,9 @@ async function request<T>(path:string,token:string,method:'GET'|'POST'='GET',dat
 }
 const id=(value:string)=>encodeURIComponent(value);
 export const api={
+  currentSession:(token:string)=>request<{role:BusinessRole}>('/me',token),
+  orderInbox:(token:string,offset=0)=>request<OrderInboxData>('/orders/inbox?limit=25&offset='+offset,token),
+  analytics:(token:string,status?:DashboardStatus)=>request<DashboardData>('/analytics/changes'+(status?'?status='+encodeURIComponent(status):''),token),
   createOrder:(token:string,data:CreateOrder)=>request<Order>('/orders',token,'POST',data),
   getOrder:(token:string,orderId:string)=>request<Order>('/orders/'+id(orderId),token),
   revisions:(token:string,orderId:string)=>request<Revision[]>('/orders/'+id(orderId)+'/revisions',token),

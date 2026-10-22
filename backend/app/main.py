@@ -4,14 +4,17 @@ import os
 from contextlib import asynccontextmanager
 from typing import Annotated
 
-from fastapi import Depends, FastAPI, HTTPException
+from fastapi import Depends, FastAPI, HTTPException, Query, Response
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from sqlalchemy import create_engine, select, update
 from sqlalchemy.orm import Session, sessionmaker
 
 from .logic import impact_assessment
 from .observability import observe_business_operation
+from .telemetry_v2 import TelemetryV2
 from .alerting import AlertMonitor
+from .dashboard import Status as DashboardStatus, build_dashboard
+from .order_inbox import list_order_inbox
 from .models import Base, Order, OrderRevision, ProductionReview, Change, ApprovalDecision, CustomerAcceptance
 from .schemas import CreateOrder, ProductionReviewInput, ChangeInput, DecisionInput, CustomerAcceptanceInput
 
@@ -38,12 +41,19 @@ def create_app(database_url: str | None = None) -> FastAPI:
             and os.getenv("HANDOFFGUARD_ALERT_DIAGNOSTIC_ON_START") == "SEND_ON_NEXT_START"
         ):
             await app.state.alert_monitor.send_diagnostic()
-        yield
-        engine.dispose()
+        telemetry = TelemetryV2.from_environment(cloud_mode=getattr(app.state, "cloud_mode", False))
+        app.state.telemetry_v2 = telemetry
+        try:
+            yield
+        finally:
+            if telemetry is not None:
+                telemetry.shutdown()
+            engine.dispose()
 
     app = FastAPI(title="HandoffGuard AI API", version="0.3.0-gate01", lifespan=lifespan)
     # Per-app, best-effort threshold state. Never a durable production pager.
     app.state.alert_monitor = AlertMonitor.from_environment()
+    app.state.telemetry_v2 = None
     # Safe JSON events for authenticated business operations; no user payloads.
     app.middleware("http")(observe_business_operation)
 
@@ -55,7 +65,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
 
     def current_actor(credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(bearer)]) -> dict:
         if credentials is None or credentials.scheme.lower() != "bearer":
-            raise HTTPException(status_code=401, detail="Bearer token required")
+            raise HTTPException(status_code=401, detail="Bearer token required", headers={"WWW-Authenticate": "Bearer"})
         # Tokens mapped to trusted identities/roles on the SERVER. No role in request body.
         try:
             configured = json.loads(os.getenv("HANDOFFGUARD_AUTH_TOKENS", "{}"))
@@ -63,7 +73,7 @@ def create_app(database_url: str | None = None) -> FastAPI:
             raise HTTPException(status_code=503, detail="Authentication server misconfigured")
         record = configured.get(credentials.credentials)
         if not isinstance(record, dict) or record.get("role") not in {"sales", "production", "approver"} or not record.get("id"):
-            raise HTTPException(status_code=401, detail="Invalid token")
+            raise HTTPException(status_code=401, detail="Invalid token", headers={"WWW-Authenticate": "Bearer"})
         return record
 
     def require_role(*allowed: str):
@@ -99,6 +109,30 @@ def create_app(database_url: str | None = None) -> FastAPI:
     def latest_review(db: Session, order_id: str):
         return db.scalars(select(ProductionReview).where(ProductionReview.order_id == order_id)
                           .order_by(ProductionReview.recorded_at.desc(), ProductionReview.id.desc())).first()
+
+    @app.get("/api/v1/me", operation_id="getCurrentSession")
+    def get_current_session(actor: Annotated[dict, Depends(current_actor)]):
+        """Return only the validated role, never tokens or actor identifiers."""
+        return {"role": actor["role"]}
+
+    @app.get("/api/v1/analytics/changes", operation_id="listChangeAnalytics")
+    def list_change_analytics(
+        db: Annotated[Session, Depends(get_db)],
+        actor: Annotated[dict, Depends(require_role("sales", "approver"))],
+        status: DashboardStatus | None = None,
+    ):
+        """Read-only totals and bounded synthetic-demo rows; no free-text or PII."""
+        return build_dashboard(db, status=status)
+
+    @app.get("/api/v1/orders/inbox", operation_id="listOrderInbox")
+    def get_order_inbox(
+        db: Annotated[Session, Depends(get_db)],
+        actor: Annotated[dict, Depends(current_actor)],
+        limit: Annotated[int, Query(ge=1, le=100)] = 25,
+        offset: Annotated[int, Query(ge=0)] = 0,
+    ):
+        """Live queue: current revision requires a recorded production review."""
+        return list_order_inbox(db, limit=limit, offset=offset)
 
     @app.post("/api/v1/orders", status_code=201, operation_id="createOrder")
     def create_order(payload: CreateOrder, db: Annotated[Session, Depends(get_db)], actor: Annotated[dict, Depends(require_role("sales"))]):
@@ -365,6 +399,17 @@ def create_app(database_url: str | None = None) -> FastAPI:
         db.commit()
         return {"order_id": order.id, "change_id": change.id, "approved_revision": next_revision,
                 "approved_source_id": acceptance.id}
+
+    @app.get("/internal/metrics", include_in_schema=False)
+    def local_observability_metrics():
+        """Internal endpoint; disabled by default and unavailable in the cloud."""
+        lab = app.state.telemetry_v2
+        if lab is None:
+            raise HTTPException(status_code=404, detail="Not found")
+        return Response(
+            content=lab.metrics_text(), media_type=lab.metrics_media_type,
+            headers={"Cache-Control": "no-store"},
+        )
 
     @app.get("/health", include_in_schema=False)
     def health():
