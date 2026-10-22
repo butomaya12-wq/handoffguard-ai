@@ -1,12 +1,12 @@
 # Project 1 submission preflight — updated after 2026-10-22 release
 
-**Course:** DataTalks.Club AI Dev Tools Zoomcamp 2026 — Project 1.  
-**Public repository:** https://github.com/butomaya12-wq/handoffguard-ai  
-**Hosted educational demo:** https://handoffguard-ai-demo.onrender.com  
-**Official rubric:** https://github.com/DataTalksClub/ai-dev-tools-zoomcamp/blob/main/project/README.md  
-**Submission page:** https://courses.datatalks.club/ai-dev-tools-2026/project/project1  
-**Acceptance tracker:** https://github.com/butomaya12-wq/handoffguard-ai/issues/6  
-**Documentation correction:** https://github.com/butomaya12-wq/handoffguard-ai/issues/34
+- **Course:** DataTalks.Club AI Dev Tools Zoomcamp 2026 — Project 1.
+- **Public repository:** https://github.com/butomaya12-wq/handoffguard-ai
+- **Hosted educational demo:** https://handoffguard-ai-demo.onrender.com
+- **Official rubric:** https://github.com/DataTalksClub/ai-dev-tools-zoomcamp/blob/main/project/README.md
+- **Submission page:** https://courses.datatalks.club/ai-dev-tools-2026/project/project1
+- **Acceptance tracker:** https://github.com/butomaya12-wq/handoffguard-ai/issues/6
+- **Documentation correction:** https://github.com/butomaya12-wq/handoffguard-ai/issues/34
 
 ## Deadline, form and review obligation
 
