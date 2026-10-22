@@ -26,7 +26,7 @@ No Docker commands, shells, SQL, customer data, full traces/logs, Render, Neon, 
 
 ## Owner Mac: safe local / no-cost verification
 
-From repository root on `feature/oncall-agent-safe-local-design-issue28`, after `git pull --ff-only`:
+From the repository root on synced `main` at or after the verified 2026-10-22 release (the feature branch was integrated by PR #33):
 
 ```bash
 python3 -m unittest discover -s oncall/tests -v
@@ -71,7 +71,7 @@ If AI advice is malformed, calls for manual investigation or does not recommend 
 - **Done (owner Mac):** bounded alert → actual model triage → separate operator approval → one exact local backend start → independent health verification and unchanged V1/V2 in UI.
 - **Done (owner Mac 2026-10-22):** two-consent-at-launch one-shot `--auto-recover` pathway was exercised on a deliberately stopped isolated lab backend. The same agent process produced genuine `ai_incident_advice` then `backend_recovered` with `authorization=explicit_session_preapproval`. Owner independently saw preserved V1=100 and V2=120 in the UI. Evidence: [UAT report](oncall-autorecover-owner-uat-2026-10-22.md).
 - **Still unproven / outside scope:** unattended persistent alert listener, operation after process exit, recovery of arbitrary incidents, remote host or cloud safety and production readiness. The real code executes a narrowly scoped predetermined Docker action, not arbitrary model-generated commands. Course peer-review acceptance remains external.
-- Keep PR #32 draft, do not merge into main or deploy without owner permission.
+- **Historical release restriction (superseded 2026-10-22):** PR #32 was previously held in Draft pending owner approval. Its content was subsequently integrated by the single owner-approved squash merge of PR #33. The agent remains **local-only**; merging source code did not authorize cloud/on-prem agent activation, any further intentional outage or paid API inference. Future release changes still require owner approval.
 
 ## External contract
 

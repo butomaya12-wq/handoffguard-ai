@@ -1,6 +1,6 @@
 # Observability v2 — isolated local reviewer lab
 
-**Status:** implementation candidate in Draft PR #30; do **not** claim final 2/2 until Mac + CI evidence demonstrates both UI backends with actual measurements.
+**Status updated 2026-10-22:** This optional lab is **implemented in merged `main` via PR #33**, but still executes **only in an isolated localhost Docker Compose project**, not on Render. Its historical implementation-stage checklist below is retained as a dated review record. Code and owner local evidence are not a guarantee of 2/2 course rubric points: graders must be able to reproduce collected logs, metrics and traces in their locally run Prometheus/Jaeger UIs.
 
 This lab deliberately runs **alongside** the default HandoffGuard Docker Compose and maintains its own SQLite, Prometheus and Jaeger named volumes. No Render/Neon or hosted demo credentials are used or altered.
 
@@ -64,7 +64,7 @@ Do **not** use `down -v` unless you intentionally want to destroy **only** the l
 - The OTLP exporter runs asynchronously with bounded queue and timeout; the optional stack may drop telemetry if unavailable, but must not fail business operations.
 - Reviewer access to local UIs requires the reviewer to run the lab on their own machine; the hosted Render app has no Jaeger/Prometheus UIs. This is a limitation for the course grader that must be clearly documented.
 - Jaeger v1 all-in-one 1.76 is chosen specifically for documented single-node Badger storage; it is **not** the latest cloud-recommended Jaeger architecture. Future evolution could use Jaeger v2 + a separately configured storage/collector.
-- Criterion 12 **has a separate, proven one-shot local agent recovery experiment** under [Issue #28](../issues/28) and [Draft PR #32](https://github.com/butomaya12-wq/handoffguard-ai/pull/32): after two Prometheus down scrapes, a real OpenAI analysis and separate session preauthorization permitted one fixed lab backend start and independent health verification. This is **not** part of hosted Render or an unattended responder. See [owner UAT](oncall-autorecover-owner-uat-2026-10-22.md). A diagnostic notification alone is not an agent fix.
+- Criterion 12 **has a separate, proven one-shot local agent recovery experiment** under [Issue #28](../issues/28) and the now-integrated [PR #32](https://github.com/butomaya12-wq/handoffguard-ai/pull/32) (merged through PR #33): after two Prometheus down scrapes, a real OpenAI analysis and separate session preauthorization permitted one fixed lab backend start and independent health verification. This is **not** part of hosted Render or an unattended responder. See [owner UAT](oncall-autorecover-owner-uat-2026-10-22.md). A diagnostic notification alone is not an agent fix.
 
 ## Evidence checklist
 
