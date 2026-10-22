@@ -1,6 +1,6 @@
 # Business analytics dashboard — Issue #20
 
-**State:** isolated feature PR candidate only. Not deployed to Render, not merged into main, and no production/Neon writes have been made by implementing this feature. Human merge and release authorization are required.
+**Status updated 2026-10-22:** This design and owner-feedback record began during the isolated feature PR. The role-specific dashboard and order inbox were **merged into `main` through owner-approved PR #33** (`1889575`) and manually verified by the owner on Render after release. Browser verification was read-only and preserved hosted Neon history; it did not exercise a new write cycle. See [post-release UAT](https://github.com/butomaya12-wq/handoffguard-ai/issues/6#issuecomment-6338169498). Paragraphs below describing PR #27 as a draft are **historical design-stage notes**.
 
 ## User value
 
@@ -21,7 +21,7 @@ After validating the redesigned local Mac UI, the owner confirmed the separate s
 - The sidebar renumbers the role-visible pages consecutively, while internal API/workflow step numbering remains historically accurate.
 - Check both **empty** and **nonempty** states with synthetic test fixtures and on an owner-controlled local copy; don't seed the shared Neon demo or overwrite V1/V2 just for graphics.
 
-The update remains in **draft PR #27 only**, subject to GitHub CI, owner Mac tests, and visual review before any merge/release.
+**Historical status at 2026-10-19:** The update was then in draft PR #27 pending CI, owner review and release permission. **Subsequent status:** approved and integrated by PR #33 on 2026-10-22; the released dashboard/order inbox was visually verified in the protected hosted app.
 
 ## Production handoff: automatic live order queue (owner-requested correction)
 
