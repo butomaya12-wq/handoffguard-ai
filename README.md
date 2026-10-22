@@ -1,7 +1,7 @@
 # HandoffGuard AI
 
 **DataTalks.Club AI Dev Tools Zoomcamp 2026 — Project 1**  
-**Status verified 2026-10-19:** working educational full-stack demo on Render Free with external Neon PostgreSQL, CI-gated deployment, structured business observability and bounded Telegram alerting. This is **not a production-ready service**.
+**Submission candidate verified 2026-10-22:** the existing educational public demo on Render Free (Neon PostgreSQL, CI-gated deployment, allowlisted logs and bounded Telegram diagnostic delivery) is separate from the **unmerged local feature stack**: role-specific business dashboard, OpenTelemetry/Prometheus/Jaeger lab, and a bounded AI-assisted one-shot on-call recovery agent. The owner verified the combined local version on Mac; the additional features are **not deployed on Render**. This is **not a production-ready service**.
 
 **[Open the HTTPS educational demo](https://handoffguard-ai-demo.onrender.com)** · [Submission acceptance tracker (#6)](https://github.com/butomaya12-wq/handoffguard-ai/issues/6) · [Product specification](product-spec.md) · [Developer/AI context](AGENTS.md)
 
@@ -40,7 +40,8 @@ Hosted:  Browser -> Render HTTPS + reviewer cookie gate
 - **Draft integration UI (not deployed):** role-based React screens, business dashboard, pending production inbox and revision-specific review queue from [PR #27](https://github.com/butomaya12-wq/handoffguard-ai/pull/27). The integration [Draft PR #31](https://github.com/butomaya12-wq/handoffguard-ai/pull/31) proposes these features together with local telemetry; the current public Render URL still uses the older UI. See [dashboard specification](docs/dashboard-issue20.md).
 - **Optional *local* Observability v2 lab (Draft PR #31, NOT deployed):** real OpenTelemetry request spans and log `otel_trace_id`, Prometheus counter/latency histogram with trace exemplars, and Jaeger UI in a separate Compose project. Visit the lab app at `http://127.0.0.1:8082`, Prometheus `http://127.0.0.1:9090`, Jaeger `http://127.0.0.1:16686`. It uses a different synthetic SQLite volume from the normal local app; it is not enabled on Render. See the [observability lab runbook](docs/observability-v2-lab.md) and [Issue #29](https://github.com/butomaya12-wq/handoffguard-ai/issues/29).
 - **Alerting:** a best-effort Telegram notifier for **three HTTP 5xx from the same `createOrder` or `applyApprovedChange` operation within five minutes**, with a 15-minute per-operation cooldown. Controlled 401/403/409/422 outcomes are not outages. In-process counters reset when Render Free restarts/sleeps. The actual backend-to-Telegram diagnostic delivered successfully; **no real incident was simulated on the hosted system**.
-- **Not implemented:** autonomous on-call remediation, scanned-message extraction, full source-ingestion API, production SSO, multi-tenant controls, automated browser E2E or a 24/7 monitored service. The [OpenAPI draft](openapi.yaml) includes a **planned** source-ingestion route that is not present in the running application.
+- **Local-only one-shot On-call Agent (Draft PR #32; not on Render):** a real Prometheus two-scrape `up=0` alert triggers one opt-in OpenAI `gpt-5.4-mini` structured diagnosis. In the experimental `--auto-recover` mode, two **separate explicit preauthorizations at startup** permit a single fixed `docker compose start backend` only when independent local-context, stopped-container and fresh-scrape checks pass. Docker health and two fresh `up=1` scrapes independently verify recovery; no Docker shell/tools or customer information are shared with the LLM. The owner demonstrated this flow against an intentionally stopped **synthetic local lab** backend on 2026-10-22, with unchanged FRAME-01 V1/V2 history. It exits after one incident and is **not an unattended 24/7 responder**. See [runbook](docs/oncall-ai-triage.md), [UAT evidence](docs/oncall-autorecover-owner-uat-2026-10-22.md), [Issue #28](https://github.com/butomaya12-wq/handoffguard-ai/issues/28) and [Draft PR #32](https://github.com/butomaya12-wq/handoffguard-ai/pull/32).
+- **Not implemented:** autonomous control of business orders, scanned-message extraction, full source-ingestion API, production SSO, multi-tenant controls, automated browser E2E, cloud on-call remediation or a continuously hosted monitoring agent. The [OpenAPI draft](openapi.yaml) includes a **planned** source-ingestion route that is not present in the running application.
 
 ## 3. Run locally with one command
 
@@ -62,6 +63,25 @@ Open **http://127.0.0.1:8080**. The local Compose app uses a named SQLite volume
 
 For separate FastAPI / Vite development, see [backend setup](backend/README.md) and [frontend setup](frontend/README.md). The local synthetic tokens above are explicitly **unsuitable for public deployment**.
 
+### Optional local observability and one-shot on-call experiment (not hosted)
+
+With Docker Desktop running and a **locally ignored** `.env` containing *synthetic-only* role tokens, start the independent lab without touching normal Compose or the hosted service:
+
+```bash
+docker compose -f docker-compose.observability.yml up --build -d --wait
+```
+
+The lab app is available on `http://127.0.0.1:8082`; Prometheus is on `http://127.0.0.1:9090`; Jaeger is on `http://127.0.0.1:16686`. It uses independent named SQLite, metric and trace volumes and localhost bindings. Review [lab startup, metrics and traces](docs/observability-v2-lab.md). No live cloud credentials are required.
+
+On-call safety tests require **no** OpenAI API key and make no billed calls:
+
+```bash
+python3 -m unittest discover -s oncall/tests -v
+python3 -m oncall.agent --demo
+```
+
+The second command is a **fixed offline example** and must not be presented as an actual LLM inference. A real opt-in analysis, let alone `--auto-recover`, requires a privately configured API key, separate interactive owner consent and a deliberately isolated test-only outage. **Do not intentionally stop a backend while demonstrating the hosted application, and do not use production records or secrets.** See the [on-call runbook](docs/oncall-ai-triage.md) and [owner UAT record](docs/oncall-autorecover-owner-uat-2026-10-22.md). Never use `docker compose down -v` on a lab whose test history you want to preserve.
+
 ## 4. Tests and CI — reproducible instructions
 
 **Prerequisites for host-based tests:** Bash, Python 3.11+ with venv/pip, Node.js 22/npm. From a fresh checkout, install dependencies once:
@@ -78,9 +98,9 @@ Run the complete local test/build suite:
 bash scripts/test-all.sh
 ```
 
-The script fails fast on backend pytest, frontend Vitest or TypeScript/Vite build failures. It does not touch the hosted Neon database. **Integration head CI evidence (before owner Mac replay):** 56 backend tests and 17 frontend tests PASS, plus production build PASS, on [Draft PR #31](https://github.com/butomaya12-wq/handoffguard-ai/pull/31); the exact head SHA and workflow status must be verified after any further edit. **Historical verified runs:** owner Mac UI branch PR #27: 52 backend + 17 frontend passed, production build PASS; owner Mac telemetry-only PR #30: 46 backend + 9 frontend passed with local `observability` extra installed. **The combined integration PR #31 needs a fresh owner Mac run and exact-head CI proof; do not infer its result from either history.** To run the *additional* real OpenTelemetry in-memory tests without optional-dependency skips, install `backend/.venv/bin/python -m pip install -e './backend[observability]'` first. These are recorded results, not a guarantee of future tests.
+The script fails fast on backend pytest, frontend Vitest or TypeScript/Vite build failures. It does not touch the hosted Neon database. **Owner Mac verification on the combined feature branch (2026-10-22):** `bash scripts/test-all.sh` passed **56 backend pytest tests**, **17 frontend Vitest tests**, and the TypeScript/Vite production build. The separate offline `python3 -m unittest discover -s oncall/tests -v` passed **51 tests** (including 12 new preauthorized-recovery safety tests). Backend pytest emitted one non-failing Starlette/httpx deprecation warning. All seven PR-head GitHub Actions workflows were green on the previously verified head; recheck the exact current commit after any documentation change. A working-tree Mac test is **not** a clean-checkout reproducibility test. For optional real OpenTelemetry in-memory tests, install `backend/.venv/bin/python -m pip install -e './backend[observability]'` first.
 
-Six GitHub Actions workflows validate this integrated Draft PR (five existing checks plus the isolated observability lab): [backend](.github/workflows/backend-ci.yml), [frontend](.github/workflows/frontend-ci.yml), [full stack](.github/workflows/full-stack-ci.yml), [Docker Compose smoke](.github/workflows/docker-ci.yml), and [isolated PostgreSQL integration/cloud image](.github/workflows/postgres-ci.yml). PR #24 passed all five; CI-gated `main` updates automatically deploy to Render. See [deployment and rollback verification (#11)](https://github.com/butomaya12-wq/handoffguard-ai/issues/11). Local Docker + disposable CI records use synthetic data; don't claim a clean-checkout Mac proof unless it was actually run.
+Seven GitHub Actions workflows validate the stacked Draft PR #32: [backend](.github/workflows/backend-ci.yml), [frontend](.github/workflows/frontend-ci.yml), [full stack](.github/workflows/full-stack-ci.yml), [Docker Compose smoke](.github/workflows/docker-ci.yml), [isolated PostgreSQL integration](.github/workflows/postgres-ci.yml), [local observability lab](.github/workflows/observability-lab-ci.yml), and [on-call safety and AI-adapter tests](.github/workflows/oncall-readonly-ci.yml). CI-gated updates to `main` **automatically deploy** to Render, so the owner must explicitly approve any merges. See [deployment and rollback proof (#11)](https://github.com/butomaya12-wq/handoffguard-ai/issues/11). CI runs do not call paid OpenAI APIs or touch production Docker; do not call a Mac working-tree run a fresh clean-checkout proof.
 
 ## 5. Reviewer walkthrough
 
@@ -108,6 +128,6 @@ Historical Gate reports describe evidence **at their original dates**, not the l
 
 ## 7. Submission status and limits
 
-This is a **course demonstration**, not an incident management, identity, monitoring or factory-control product qualified for production use. Render Free may suspend/restart, Telegram notifications are best effort, and private educational role credentials cannot replace production authentication. The optional **on-call remediation agent** is not implemented.
+This is a **course demonstration**, not an incident management, identity, monitoring or factory-control product qualified for production use. Render Free may suspend/restart, Telegram notifications are best effort, and private educational role credentials cannot replace production authentication. The **optional local on-call responder** has one independently observed, bounded, session-preauthorized recovery UAT; it is not part of the hosted Render release, an unattended daemon, a general incident fixer, or a claim of production reliability.
 
-The [official course project rubric](https://github.com/DataTalksClub/ai-dev-tools-zoomcamp/blob/main/project/README.md) requires **English documentation and three peer reviews** after submitting. The actual due date, submission form and review workflow must be confirmed on the [cohort platform](https://courses.datatalks.club/ai-dev-tools-2026/). The project's earlier spec recorded **27 October 2026, 04:00 course-account timezone**, but this has **not been independently rechecked**. Do not treat a tentative date as verified or a passing self-check as a peer-review score.
+The [official project rubric](https://github.com/DataTalksClub/ai-dev-tools-zoomcamp/blob/main/project/README.md) requires **English documentation** and **three peer reviews** after submitting. The [Project 1 submission page](https://courses.datatalks.club/ai-dev-tools-2026/project/project1) displayed **26 October 2026, 23:00 in the viewer's timezone** when reviewed on 2026-10-22; confirm the actual deadline in the logged-in course account. It requests the public repository and **exact evaluated commit SHA**, so do not assume draft code is deployed or included in the reviewed `main` commit. Reviewer scoring is independent; the local UAT does not guarantee rubric criterion 12 credit. See [submission preflight and remaining gates](docs/submission-preflight-2026-10-22.md).
