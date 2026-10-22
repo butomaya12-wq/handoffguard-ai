@@ -62,6 +62,8 @@ def auto_recover(incident: dict, report: dict) -> dict:
         or incident.get("environment") != "local_synthetic"
         or incident.get("service") != "backend"
         or incident.get("evidence") != "two_distinct_prometheus_scrapes_up_zero"
+        or incident.get("action") != "report_only"
+        or incident.get("human_approval_required") is not True
         or report.get("event") != "ai_incident_advice"
         or report.get("source") != "openai_api"
         or report.get("model") != MODEL
