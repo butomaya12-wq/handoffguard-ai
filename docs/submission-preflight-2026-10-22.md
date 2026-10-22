@@ -23,7 +23,7 @@ The official project rubric has **12 criteria** with the indicated pass threshol
 
 ## Remaining gates before submission
 
-- [ ] **Verify reproducibility on Mac:** run `bash scripts/test-all.sh` on the current feature branch and preserve the complete observed result. CI pass does not prove a fresh clean-checkout run; do that separately if feasible.
+- [x] **Mac working-tree full-stack smoke verified by owner (2026-10-22):** `bash scripts/test-all.sh` finished with `PASS: all checks completed successfully.` Backend pytest: **56 passed, 1 non-failing Starlette TestClient/httpx deprecation warning**, 2.48 s. Frontend Vitest: **17 passed across 3 test files**, 1.25 s. TypeScript + Vite production build: **PASS**, 32 modules transformed, 788 ms. Earlier separate on-call suite: **51/51 PASS**. This does not constitute a fresh clean-checkout verification; that remains optional follow-up if feasible.
 - [ ] **Release decision (owner approval required):** choose between the proven hosted `main` as a conservative submission, or carefully integrate the stacked draft branches into `main` with explicit authorization and staged tests. **Do not merge, retarget or deploy without explicit permission.** Never silently expose synthetic role tokens or the local lab API key.
 - [ ] If integrating: review accumulated diff, update stale English README and reviewer walkthrough to accurately separate public Render capabilities from local-only optional lab; rerun all CI and check actual provider deployment and data persistence without modifying protected hosted orders.
 - [ ] Verify that any included observability signals satisfy the rubric wording for collection/storage/viewable UI; log-derived metrics alone are not automatically equivalent to full real traces+metrics UI.
