@@ -1,12 +1,54 @@
 # HandoffGuard AI
 
-**DataTalks.Club AI Dev Tools Zoomcamp 2026 — Project 1**  
-**Verified hosted release (2026-10-22):** consolidated [PR #33](https://github.com/butomaya12-wq/handoffguard-ai/pull/33) was squash-merged to `main` at [`188957513dbe2678a348a86a9a2492ce0e55340a`](https://github.com/butomaya12-wq/handoffguard-ai/commit/188957513dbe2678a348a86a9a2492ce0e55340a). Render automatically deployed that exact commit; six `main` CI workflows passed. The owner independently verified the new role-based dashboard, order inbox and V1/V2 history through the protected hosted browser, while read-only Neon checks confirmed persisted versions and approvals. [Post-release evidence](https://github.com/butomaya12-wq/handoffguard-ai/issues/6#issuecomment-6338169498).
-**Important scope:** the optional Prometheus/Jaeger/OpenTelemetry lab and bounded OpenAI-assisted on-call recovery code are included in `main`, but they run **only in an isolated local Docker Compose lab**, not on Render. This is an educational demonstration, **not a production-ready service**.
+**Human-controlled manufacturing order changes — from impact assessment to approved revisions, without overwriting the original agreement.**
 
-**[Open the HTTPS educational demo](https://handoffguard-ai-demo.onrender.com)** · [Submission acceptance tracker (#6)](https://github.com/butomaya12-wq/handoffguard-ai/issues/6) · [Product specification](product-spec.md) · [Developer/AI context](AGENTS.md)
+**DataTalks.Club AI Dev Tools Zoomcamp 2026 — Project 1**
 
-> **Reviewer access is required.** The public URL opens a private reviewer login page; it does not grant anonymous access to the business UI. Ask the project owner privately for the reviewer access key and the three **cloud-only synthetic** business-role credentials. No credentials or customer data are stored in this repository. Render Free may take time to wake from inactivity.
+[**Live educational demo**](https://handoffguard-ai-demo.onrender.com) · [**Verified release v0.3.0**](https://github.com/butomaya12-wq/handoffguard-ai/releases/tag/v0.3.0) · [**Submission evidence**](https://github.com/butomaya12-wq/handoffguard-ai/issues/6) · [**Product specification**](product-spec.md)
+
+> **Reviewer access is required.** The protected hosted demo uses a reviewer login and separate cloud-only synthetic business-role credentials. Request them privately from the owner. **Never** post credentials or customer information in issues or screenshots. Render Free may need to wake up.
+
+## Product walkthrough — verified hosted screenshots
+
+Actual owner-captured browser screens from the protected Render app, **22 October 2026**. The sample order `FRAME-01` and all numbers are **synthetic**, not client data. This is a manual UI walkthrough, not automated browser E2E evidence.
+
+### 01 · Manager dashboard
+
+One applied change in the persistent dataset, shown consistently in the KPI cards, status chart and read-only summary. Counts are not illustrative placeholders.
+
+![HandoffGuard AI manager dashboard: one applied change, live status breakdown and sidebar navigation](docs/images/handoffguard-manager-dashboard.png)
+
+### 02 · Order inbox and immutable revision history
+
+| Order inbox · current approved V2 | Revision history · approved V1 and V2 |
+| --- | --- |
+| [![HandoffGuard AI order inbox: FRAME-01 V2 and pending production review](docs/images/handoffguard-order-inbox.png)](docs/images/handoffguard-order-inbox.png) | [![HandoffGuard AI revision history: preserved V1 100 units and V2 120 units](docs/images/handoffguard-version-history.png)](docs/images/handoffguard-version-history.png) |
+
+**Inbox:** `FRAME-01 · V2`, 120 units, due 2026-11-17. **Requires production review** reflects the current approved revision, not a failed or silently completed action. The list opens the order without sharing a UUID.
+
+**History:** approved V1 = 100 units and approved V2 = 120 units, both 1,000 RUB per unit, due 2026-11-17. Applying V2 did not rewrite V1.
+
+## Workflow at a glance
+
+```mermaid
+flowchart TD
+  A["Approved baseline V1"] --> B["Sales proposes a change"]
+  B --> C["Production reviews feasibility"]
+  C --> D["Deterministic impact assessment"]
+  D --> E{"Assessment ready and current?"}
+  E -->|No| F["Do not apply the change; preserve V1"]
+  E -->|Yes| G["Authorized internal approval"]
+  G --> H["Matching customer acceptance"]
+  H --> I["Authorized apply creates V2; V1 retained"]
+```
+
+**Human approval is mandatory.** The AI model does not approve commercial terms, alter order quantities or halt production. Business role permissions and stale-assessment checks are enforced by the FastAPI backend.
+
+**Release evidence:** [v0.3.0](https://github.com/butomaya12-wq/handoffguard-ai/releases/tag/v0.3.0) pins `a2d9a9b1d709236689e59f6c8cdab5ecb8583b00`: six main-branch CI checks passed, Render confirmed live and read-only Neon verification preserved both revisions and their approval/acceptance chain. The functional workspace was manually verified in the browser after [PR #33](https://github.com/butomaya12-wq/handoffguard-ai/pull/33); see [post-release evidence](https://github.com/butomaya12-wq/handoffguard-ai/issues/6#issuecomment-6338169498).
+
+**Local-only engineering experiments:** optional OpenTelemetry/Prometheus/Jaeger monitoring and a bounded, session-preauthorized single-incident AI-assisted on-call recovery are available in a **separate synthetic localhost Compose lab**. They are not running on Render or as unattended cloud recovery. This is **not a production-ready service**.
+
+---
 
 ## 1. Problem and outcome
 
